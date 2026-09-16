@@ -41,6 +41,7 @@
   .empty{color:var(--soft);font-size:14px;padding:14px;text-align:center;
     border:1px dashed var(--line);border-radius:12px;background:var(--paper);}
   .hrchip{font-weight:700;color:var(--clay);}
+  .hrchip.stale{color:var(--soft);font-weight:500;}
 </style>
 <script src="i18n.js" defer></script>
 </head>
@@ -83,6 +84,23 @@
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(map);
   var markers = [];
+
+  /* 心率樣本距今多久：HealthKit 遞送有延遲，必須讓研究者看得出新鮮度 */
+  function hrAgeSec(dv){
+    if(dv.hrAt == null) return null;
+    return Math.max(0, Math.round((Date.now() - Number(dv.hrAt)) / 1000));
+  }
+  function hrAgeText(dv){
+    var a = hrAgeSec(dv);
+    if(a == null) return "";
+    if(a < 60) return a + " " + I18N.t("live.secAgo");
+    return Math.round(a / 60) + " " + I18N.t("live.minAgo");
+  }
+  /* 超過兩分鐘的心率視為不新鮮 */
+  function hrStale(dv){
+    var a = hrAgeSec(dv);
+    return a != null && a > 120;
+  }
 
   function colorFor(id){
     var h = 0;
@@ -153,7 +171,7 @@
         }).addTo(map);
         m.bindTooltip(
           (g.name || g.id) + " " + (dv.code || "") +
-          (dv.hr != null ? "　♥" + dv.hr : "　♥—"),
+          (dv.hr != null ? "　♥" + dv.hr + (hrAgeText(dv) ? "（" + hrAgeText(dv) + "）" : "") : "　♥—"),
           { permanent: true, direction: "top", offset: [0, -8] });
         markers.push(m);
         pts.push([dv.lat, dv.lng]);
@@ -164,8 +182,12 @@
       card.className = "pcard";
       var devLine = devs.length
         ? devs.map(function(dv){
-            return (dv.code || "？") + "（<span class='hrchip'>♥" + (dv.hr != null ? dv.hr : "—") +
-                   "</span>・" + dv.ageSec + " " + I18N.t("live.secAgo") + "）";
+            var age = hrAgeText(dv);
+            var cls = hrStale(dv) ? "hrchip stale" : "hrchip";
+            return (dv.code || "？") + "（<span class='" + cls + "'>♥" +
+                   (dv.hr != null ? dv.hr : "—") + (age ? " " + age : "") +
+                   "</span>・" + I18N.t("live.pos") + " " + dv.ageSec + " " +
+                   I18N.t("live.secAgo") + "）";
           }).join("　")
         : "<span class='meta'>" + I18N.t('live.noneHere') + "</span>";
       card.innerHTML =
@@ -193,7 +215,7 @@
       $("#me").style.display = "flex";
       if (meFound) {
         $("#meHr").textContent = meFound.hr != null ? meFound.hr : "—";
-        $("#meInfo").textContent = meFound.code + "・" + I18N.t("live.updated") + " " + meFound.ageSec + " " + I18N.t("live.secAgo");
+        $("#meInfo").textContent = meFound.code + "・" + I18N.t("live.pos") + " " + meFound.ageSec + " " + I18N.t("live.secAgo") + (hrAgeText(meFound) ? "・♥ " + hrAgeText(meFound) : "");
         if (meFound.lat != null) map.setView([meFound.lat, meFound.lng], Math.max(map.getZoom(), 16));
       } else {
         $("#meHr").textContent = "—";

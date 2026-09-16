@@ -137,7 +137,9 @@
     "live.noneMine":    ["還沒收到你的裝置回報。開始走測後約半分鐘內會出現。",
                          "No report from your device yet. It should appear within about 30 seconds of starting a session."],
     "live.updated":     ["更新於", "Updated"],
-    "live.secAgo":      ["秒前", "s ago"]
+    "live.secAgo":      ["秒前", "s ago"],
+    "live.minAgo":      ["分前", "min ago"],
+    "live.pos":         ["位置", "position"]
   };
 
   var lang = "zh";
