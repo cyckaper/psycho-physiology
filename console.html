@@ -186,12 +186,12 @@
 
   <div class="ctxwrap" id="ctxWrap" style="display:none">
     <div class="ctxhead">
-      <div class="lbl" style="margin:0">脈絡分析：天氣變化 × 生理</div>
-      <button class="btn ghost" id="btnCtx" style="padding:5px 12px;font-size:13px">重新分析</button>
+      <div class="lbl" style="margin:0" data-i18n="ctx.title">脈絡分析：天氣變化 × 生理</div>
+      <button class="btn ghost" id="btnCtx" style="padding:5px 12px;font-size:13px" data-i18n="ctx.reanalyze">重新分析</button>
       <span class="advnote" id="ctxStatus" style="margin:0"></span>
     </div>
     <div id="ctxBody"></div>
-    <p class="ctxnote">氣壓與氣溫的<b>變化</b>（與 24 小時前相比）在文獻中與情緒、自律神經活性的關聯，通常比當下的絕對值更穩定。表中「氣壓趨勢」為場次前 72 小時的逐時走勢。天氣資料由 open-meteo 依場次的時間與座標回溯查得，非現場量測，與 App 現場擷取的環境快照互為對照。跨距達 3 公里以上的場次會沿途取 3 至 5 點，氣溫與濕度顯示沿途範圍；<b>跨地點比較一律採海平面氣壓</b>，因為地面氣壓隨海拔劇烈變化（每上升 100 公尺約降 12 hPa），直接比較會把爬升誤讀為天氣變化。「24h 壓差」則為起點的地面氣壓變化，對應身體實際承受的壓力。</p>
+    <p class="ctxnote" id="ctxNote"></p>
   </div>
   <div class="note" id="note" style="display:none"></div>
 </div>
@@ -263,14 +263,14 @@ async function fetchFromBackend(){
   const proj=PROJ;
   const note=$("#feNote");
   if(!proj)return;
-  note.style.display="block";note.textContent="抓取中…";
+  note.style.display="block";note.textContent=I18N.t("console.fetching");
   let arr;
   try{
     const r=await fetch("/api/data?project="+encodeURIComponent(proj)+"&t="+Date.now(),{cache:"no-store"});
     if(!r.ok)throw new Error("HTTP "+r.status);
     arr=await r.json();
-  }catch(e){note.textContent="抓取失敗："+e.message;return;}
-  if(!Array.isArray(arr)||!arr.length){note.textContent="後端目前沒有「"+proj+"」的資料(尚未有裝置上傳)。";return;}
+  }catch(e){note.textContent=I18N.t("console.fetchFail")+e.message;return;}
+  if(!Array.isArray(arr)||!arr.length){note.textContent="「"+proj+"」"+I18N.t("console.noData");return;}
   // 每筆 = 一個場次（含 physiology / location / environment）
   const list=arr.map(r=>({
       code:r.code||"NA", session:r.session||"NA", uploadedAt:r.uploadedAt||0,
@@ -280,12 +280,12 @@ async function fetchFromBackend(){
     }))
     .filter(g=>g.phys.length||g.track.length||g.env.length)
     .sort((a,b)=>b.uploadedAt-a.uploadedAt);
-  if(!list.length){note.textContent="後端有「"+proj+"」但都是空的場次。";return;}
+  if(!list.length){note.textContent="「"+proj+"」"+I18N.t("console.emptyAll");return;}
   clearParticipants();
   list.forEach(g=>addParticipant({label:g.code+"·"+shortSession(g.session),phys:g.phys,track:g.track,env:g.env}));
   refresh();
   const sessCount=new Set(list.map(g=>g.session)).size;
-  note.textContent="已載入 "+list.length+" 組(編號×場次)、共 "+sessCount+" 個場次。可直接看地圖／產出 Excel；需要離線拖檔請展開下方「進階」。";
+  note.textContent=I18N.t("console.loaded1")+" "+list.length+" "+I18N.t("console.loaded2")+" "+sessCount+" "+I18N.t("console.loaded3");
   analyzeContext();
 }
 
@@ -302,12 +302,12 @@ function addParticipant(preset){
       <button class="rm" title="移除">✕</button>
     </div>
     <label class="drop" data-role="drop">
-      <div class="h">拖入此參與者的 JSON</div>
-      <div class="s">生理 ／ 軌跡 ／ 環境（可多檔，自動辨識）</div>
+      <div class="h">${I18N.t("console.dropH")}</div>
+      <div class="s">${I18N.t("console.dropS")}</div>
       <input type="file" accept=".json,application/json" multiple>
     </label>
     <div class="pstat" data-role="stat"></div>
-    <label class="pvis"><input type="checkbox" data-role="vis" checked> 在地圖顯示</label>`;
+    <label class="pvis"><input type="checkbox" data-role="vis" checked> ${I18N.t("console.showOnMap")}</label>`;
   $("#pcards").appendChild(card);
 
   const labelEl=card.querySelector('[data-role=label]');
@@ -336,7 +336,7 @@ function addParticipant(preset){
 }
 function updateStat(p,el){
   const chip=(n,lbl)=>`<span class="chip${n?'':' empty'}">${lbl} ${n?n.toLocaleString():'—'}</span>`;
-  el.innerHTML=chip(p.phys.length,"生理")+chip(p.track.length,"軌跡")+chip(p.env.length,"環境");
+  el.innerHTML=chip(p.phys.length,I18N.t("console.chipPhys"))+chip(p.track.length,I18N.t("console.chipTrack"))+chip(p.env.length,I18N.t("console.chipEnv"));
 }
 
 /* ---- 指標清單(跨參與者聯集) ---- */
@@ -430,24 +430,32 @@ function buildWorkbook(){
   participants.forEach(p=>{
     if(!p.phys.length||!p.track.length)return;
     const {rows}=joinParticipant(p,tol,acc);
+    // 欄位名固定中英並陳，不隨介面語言改變——跨檔合併時欄位鍵才唯一
     const data=rows.map(r=>({
-      "編號":p.label,"時間(台北)":fmtLocal(r.time),"指標":r.metricType,"數值":r.value,"單位":r.unit||"",
-      "lat":r.lat,"lng":r.lng,"精度m":round(r.acc,1),"Δt秒":r.dtSec,"來源":r.sourceDevice||"",
-      "氣溫C":r.env?r.env.airTempC:"","體感C":r.env?r.env.apparentTempC:"","濕度%":r.env?r.env.humidityPct:"",
-      "AQI":r.env?r.env.usAqi:"","PM2.5":r.env?r.env.pm25:"","PM10":r.env?r.env.pm10:"",
-      "風速ms":r.env?r.env.windSpeedMs:"","天氣":r.env?r.env.weatherDesc:""
+      "編號 Code":p.label,"時間 Time (Taipei)":fmtLocal(r.time),
+      "指標 Metric":r.metricType,"數值 Value":r.value,"單位 Unit":r.unit||"",
+      "緯度 Lat":r.lat,"經度 Lng":r.lng,"精度 Accuracy (m)":round(r.acc,1),
+      "時間差 Δt (s)":r.dtSec,"來源 Source":r.sourceDevice||"",
+      "氣溫 AirTemp (°C)":r.env?r.env.airTempC:"","體感溫度 ApparentTemp (°C)":r.env?r.env.apparentTempC:"",
+      "濕度 Humidity (%)":r.env?r.env.humidityPct:"","空氣品質 AQI":r.env?r.env.usAqi:"",
+      "PM2.5 (µg/m³)":r.env?r.env.pm25:"","PM10 (µg/m³)":r.env?r.env.pm10:"",
+      "風速 WindSpeed (m/s)":r.env?r.env.windSpeedMs:"","天氣 Weather":r.env?r.env.weatherDesc:""
     }));
     let nm=(p.label||"裝置").replace(/[\[\]\*\?\/\\:]/g,"_").slice(0,28)||"裝置";
     let base=nm,k=2;while(used.has(nm)){nm=(base.slice(0,26)+"_"+k);k++;}used.add(nm);
-    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data.length?data:[{"編號":p.label,"說明":"此參與者無對接到 GPS 的樣本"}]),nm);
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data.length?data:[
+      {"編號 Code":p.label,"說明 Note":"此參與者無對接到 GPS 的樣本 / No samples matched to GPS"}]),nm);
     const hr=rows.filter(r=>r.metricType==="heart_rate").map(r=>r.value);
     const ts=rows.map(r=>r.time);
-    summary.push({"編號":p.label,"生理(GPS對接)":rows.length,"軌跡點":p.track.length,
-      "心率範圍bpm":hr.length?Math.min(...hr)+"–"+Math.max(...hr):"—",
-      "場次起(台北)":ts.length?fmtLocal(Math.min(...ts)):"—","場次迄(台北)":ts.length?fmtLocal(Math.max(...ts)):"—"});
+    summary.push({"編號 Code":p.label,
+      "生理筆數 Physio (GPS-matched)":rows.length,
+      "軌跡點數 TrackPoints":p.track.length,
+      "心率範圍 HR range (bpm)":hr.length?Math.min(...hr)+"–"+Math.max(...hr):"—",
+      "場次起 Start (Taipei)":ts.length?fmtLocal(Math.min(...ts)):"—",
+      "場次迄 End (Taipei)":ts.length?fmtLocal(Math.max(...ts)):"—"});
   });
   if(!summary.length){alert("尚無可輸出的資料:每位參與者需同時有「生理」與「軌跡」。");return null;}
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(summary),"總覽");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(summary),"總覽 Summary");
   wb.SheetNames.unshift(wb.SheetNames.pop());
   return wb;
 }
@@ -591,14 +599,14 @@ function rangeTxt(lo,hi,unit,dp){
 function tempCell(r){
   if(r.along && r.along.tMin!=null){
     const rng = rangeTxt(r.along.tMin, r.along.tMax, "°C", 1);
-    return rng+'<br><span class="flat" style="font-size:11.5px">沿途 '+r.along.n+' 點</span>';
+    return rng+'<br><span class="flat" style="font-size:11.5px">'+I18N.t("ctx.alongN")+' '+r.along.n+' '+I18N.t("ctx.alongPts")+'</span>';
   }
   return r.now&&isFinite(r.now.temp) ? r.now.temp.toFixed(1)+"°C" : "—";
 }
 function presCell(r){
   if(r.along && r.along.mMin!=null){
     const rng = rangeTxt(r.along.mMin, r.along.mMax, " hPa", 0);
-    return rng+'<br><span class="flat" style="font-size:11.5px">海平面值</span>';
+    return rng+'<br><span class="flat" style="font-size:11.5px">'+I18N.t("ctx.mslLabel")+'</span>';
   }
   return r.now&&isFinite(r.now.pres) ? r.now.pres.toFixed(0)+" hPa" : "—";
 }
@@ -621,7 +629,7 @@ async function analyzeContext(){
   const ps = participants.filter(p=>(p.track&&p.track.length)||(p.phys&&p.phys.length));
   if(!ps.length){ $("#ctxWrap").style.display="none"; return; }
   $("#ctxWrap").style.display="block";
-  st.textContent="查詢天氣中…";
+  st.textContent=I18N.t("ctx.loading");
   const rows=[];
   for(const p of ps){
     const a = sessionAnchor(p);
@@ -672,9 +680,10 @@ async function analyzeContext(){
                mins: a.endT&&a.t ? Math.round((a.endT-a.t)/60000) : null});
   }
   rows.sort((x,y)=>y.t-x.t);
+  const H=k=>'<th>'+I18N.t(k)+'</th>';
   let html='<table class="ctxtable"><thead><tr>'+
-    '<th>場次</th><th>時間</th><th>時長</th><th>氣溫</th><th>24h 溫差</th>'+
-    '<th>氣壓</th><th>24h 壓差</th><th>濕度</th><th>氣壓趨勢（前 72h）</th><th>平均心率</th>'+
+    H("ctx.colSession")+H("ctx.colTime")+H("ctx.colDur")+H("ctx.colTemp")+H("ctx.colDTemp")+
+    H("ctx.colPres")+H("ctx.colDPres")+H("ctx.colRH")+H("ctx.colTrend")+H("ctx.colHR")+
     '</tr></thead><tbody>';
   for(const r of rows){
     const d=new Date(r.t);
@@ -682,7 +691,7 @@ async function analyzeContext(){
     html+='<tr>'+
       '<td>'+r.label+'</td>'+
       '<td class="num">'+(d.getMonth()+1)+'/'+d.getDate()+' '+p2(d.getHours())+':'+p2(d.getMinutes())+'</td>'+
-      '<td class="num">'+(r.mins!=null?r.mins+" 分":"—")+
+      '<td class="num">'+(r.mins!=null?r.mins+" "+I18N.t("ctx.min"):"—")+
         (r.spanKm>=3?'<br><span class="flat" style="font-size:11.5px">'+r.spanKm.toFixed(0)+' km</span>':'')+'</td>'+
       '<td class="num">'+tempCell(r)+'</td>'+
       '<td class="num">'+deltaCell(r.dT,"°C",1)+'</td>'+
@@ -696,13 +705,15 @@ async function analyzeContext(){
   html+='</tbody></table>';
   body.innerHTML=html;
   const ok = rows.filter(r=>r.now).length;
-  st.textContent="已分析 "+rows.length+" 個場次"+(ok<rows.length?("（"+(rows.length-ok)+" 個查無天氣，多為缺座標或時間過舊）"):"");
+  st.textContent=I18N.t("ctx.analysed1")+" "+rows.length+" "+I18N.t("ctx.analysed2")+(ok<rows.length?("（"+(rows.length-ok)+" "+I18N.t("ctx.noWeather")+"）"):"");
 }
 
 /* ---- 綁定 ---- */
 $("#btnAdd").addEventListener("click",()=>addParticipant());
 $("#btnExport").addEventListener("click",exportExcel);
 $("#btnCtx").addEventListener("click",analyzeContext);
+window.onLangChange=function(){ $("#ctxNote").innerHTML=I18N.t("ctx.note"); document.querySelectorAll('[data-role=stat]').forEach((el,i)=>{ if(participants[i]) updateStat(participants[i],el); }); analyzeContext(); };
+$("#ctxNote").innerHTML=I18N.t("ctx.note");
 
 /* ---- 專案鎖定與自動抓取 ---- */
 const advEl=document.getElementById("advLocal");
