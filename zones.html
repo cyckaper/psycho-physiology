@@ -57,7 +57,7 @@
   .stnav a:hover{border-color:var(--moss-deep);}
 
 </style>
-<script src="i18n.js" defer></script>
+<script src="i18n.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -138,7 +138,8 @@
     $("#btnDone").disabled   = !drawing || pending.length < 3;
     $("#btnCancel").disabled = !drawing;
     $("#hint").textContent = drawing
-      ? ("繪製中：已點 " + pending.length + " 點" + (pending.length < 3 ? "（至少 3 點）" : "，可按「完成多邊形」"))
+      ? ("繪製中：請在地圖上點出頂點，已點 " + pending.length + " 點"
+         + (pending.length < 3 ? "（至少 3 點）" : "，可按「完成多邊形」"))
       : "按「新增區域」後，在地圖上依序點出頂點（至少 3 點），再按「完成多邊形」。";
   }
 

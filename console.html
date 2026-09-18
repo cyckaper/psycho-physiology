@@ -118,7 +118,7 @@
   .flat{color:#6b6750;}
   .ctxnote{font-size:12.5px;color:#6b6750;margin:8px 0 0;max-width:760px;line-height:1.7;}
 </style>
-<script src="i18n.js" defer></script>
+<script src="i18n.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -263,14 +263,14 @@ async function fetchFromBackend(){
   const proj=PROJ;
   const note=$("#feNote");
   if(!proj)return;
-  note.style.display="block";note.textContent=I18N.t("console.fetching");
+  note.style.display="block";note.textContent=TT("console.fetching");
   let arr;
   try{
     const r=await fetch("/api/data?project="+encodeURIComponent(proj)+"&t="+Date.now(),{cache:"no-store"});
     if(!r.ok)throw new Error("HTTP "+r.status);
     arr=await r.json();
-  }catch(e){note.textContent=I18N.t("console.fetchFail")+e.message;return;}
-  if(!Array.isArray(arr)||!arr.length){note.textContent="「"+proj+"」"+I18N.t("console.noData");return;}
+  }catch(e){note.textContent=TT("console.fetchFail")+e.message;return;}
+  if(!Array.isArray(arr)||!arr.length){note.textContent="「"+proj+"」"+TT("console.noData");return;}
   // 每筆 = 一個場次（含 physiology / location / environment）
   const list=arr.map(r=>({
       code:r.code||"NA", session:r.session||"NA", uploadedAt:r.uploadedAt||0,
@@ -280,12 +280,12 @@ async function fetchFromBackend(){
     }))
     .filter(g=>g.phys.length||g.track.length||g.env.length)
     .sort((a,b)=>b.uploadedAt-a.uploadedAt);
-  if(!list.length){note.textContent="「"+proj+"」"+I18N.t("console.emptyAll");return;}
+  if(!list.length){note.textContent="「"+proj+"」"+TT("console.emptyAll");return;}
   clearParticipants();
   list.forEach(g=>addParticipant({label:g.code+"·"+shortSession(g.session),phys:g.phys,track:g.track,env:g.env}));
   refresh();
   const sessCount=new Set(list.map(g=>g.session)).size;
-  note.textContent=I18N.t("console.loaded1")+" "+list.length+" "+I18N.t("console.loaded2")+" "+sessCount+" "+I18N.t("console.loaded3");
+  note.textContent=TT("console.loaded1")+" "+list.length+" "+TT("console.loaded2")+" "+sessCount+" "+TT("console.loaded3");
   analyzeContext();
 }
 
@@ -302,12 +302,12 @@ function addParticipant(preset){
       <button class="rm" title="移除">✕</button>
     </div>
     <label class="drop" data-role="drop">
-      <div class="h">${I18N.t("console.dropH")}</div>
-      <div class="s">${I18N.t("console.dropS")}</div>
+      <div class="h">${TT("console.dropH")}</div>
+      <div class="s">${TT("console.dropS")}</div>
       <input type="file" accept=".json,application/json" multiple>
     </label>
     <div class="pstat" data-role="stat"></div>
-    <label class="pvis"><input type="checkbox" data-role="vis" checked> ${I18N.t("console.showOnMap")}</label>`;
+    <label class="pvis"><input type="checkbox" data-role="vis" checked> ${TT("console.showOnMap")}</label>`;
   $("#pcards").appendChild(card);
 
   const labelEl=card.querySelector('[data-role=label]');
@@ -336,7 +336,7 @@ function addParticipant(preset){
 }
 function updateStat(p,el){
   const chip=(n,lbl)=>`<span class="chip${n?'':' empty'}">${lbl} ${n?n.toLocaleString():'—'}</span>`;
-  el.innerHTML=chip(p.phys.length,I18N.t("console.chipPhys"))+chip(p.track.length,I18N.t("console.chipTrack"))+chip(p.env.length,I18N.t("console.chipEnv"));
+  el.innerHTML=chip(p.phys.length,TT("console.chipPhys"))+chip(p.track.length,TT("console.chipTrack"))+chip(p.env.length,TT("console.chipEnv"));
 }
 
 /* ---- 指標清單(跨參與者聯集) ---- */
@@ -599,14 +599,14 @@ function rangeTxt(lo,hi,unit,dp){
 function tempCell(r){
   if(r.along && r.along.tMin!=null){
     const rng = rangeTxt(r.along.tMin, r.along.tMax, "°C", 1);
-    return rng+'<br><span class="flat" style="font-size:11.5px">'+I18N.t("ctx.alongN")+' '+r.along.n+' '+I18N.t("ctx.alongPts")+'</span>';
+    return rng+'<br><span class="flat" style="font-size:11.5px">'+TT("ctx.alongN")+' '+r.along.n+' '+TT("ctx.alongPts")+'</span>';
   }
   return r.now&&isFinite(r.now.temp) ? r.now.temp.toFixed(1)+"°C" : "—";
 }
 function presCell(r){
   if(r.along && r.along.mMin!=null){
     const rng = rangeTxt(r.along.mMin, r.along.mMax, " hPa", 0);
-    return rng+'<br><span class="flat" style="font-size:11.5px">'+I18N.t("ctx.mslLabel")+'</span>';
+    return rng+'<br><span class="flat" style="font-size:11.5px">'+TT("ctx.mslLabel")+'</span>';
   }
   return r.now&&isFinite(r.now.pres) ? r.now.pres.toFixed(0)+" hPa" : "—";
 }
@@ -629,7 +629,7 @@ async function analyzeContext(){
   const ps = participants.filter(p=>(p.track&&p.track.length)||(p.phys&&p.phys.length));
   if(!ps.length){ $("#ctxWrap").style.display="none"; return; }
   $("#ctxWrap").style.display="block";
-  st.textContent=I18N.t("ctx.loading");
+  st.textContent=TT("ctx.loading");
   const rows=[];
   for(const p of ps){
     const a = sessionAnchor(p);
@@ -680,7 +680,7 @@ async function analyzeContext(){
                mins: a.endT&&a.t ? Math.round((a.endT-a.t)/60000) : null});
   }
   rows.sort((x,y)=>y.t-x.t);
-  const H=k=>'<th>'+I18N.t(k)+'</th>';
+  const H=k=>'<th>'+TT(k)+'</th>';
   let html='<table class="ctxtable"><thead><tr>'+
     H("ctx.colSession")+H("ctx.colTime")+H("ctx.colDur")+H("ctx.colTemp")+H("ctx.colDTemp")+
     H("ctx.colPres")+H("ctx.colDPres")+H("ctx.colRH")+H("ctx.colTrend")+H("ctx.colHR")+
@@ -691,7 +691,7 @@ async function analyzeContext(){
     html+='<tr>'+
       '<td>'+r.label+'</td>'+
       '<td class="num">'+(d.getMonth()+1)+'/'+d.getDate()+' '+p2(d.getHours())+':'+p2(d.getMinutes())+'</td>'+
-      '<td class="num">'+(r.mins!=null?r.mins+" "+I18N.t("ctx.min"):"—")+
+      '<td class="num">'+(r.mins!=null?r.mins+" "+TT("ctx.min"):"—")+
         (r.spanKm>=3?'<br><span class="flat" style="font-size:11.5px">'+r.spanKm.toFixed(0)+' km</span>':'')+'</td>'+
       '<td class="num">'+tempCell(r)+'</td>'+
       '<td class="num">'+deltaCell(r.dT,"°C",1)+'</td>'+
@@ -705,15 +705,22 @@ async function analyzeContext(){
   html+='</tbody></table>';
   body.innerHTML=html;
   const ok = rows.filter(r=>r.now).length;
-  st.textContent=I18N.t("ctx.analysed1")+" "+rows.length+" "+I18N.t("ctx.analysed2")+(ok<rows.length?("（"+(rows.length-ok)+" "+I18N.t("ctx.noWeather")+"）"):"");
+  st.textContent=TT("ctx.analysed1")+" "+rows.length+" "+TT("ctx.analysed2")+(ok<rows.length?("（"+(rows.length-ok)+" "+TT("ctx.noWeather")+"）"):"");
 }
 
 /* ---- 綁定 ---- */
 $("#btnAdd").addEventListener("click",()=>addParticipant());
 $("#btnExport").addEventListener("click",exportExcel);
 $("#btnCtx").addEventListener("click",analyzeContext);
-window.onLangChange=function(){ $("#ctxNote").innerHTML=I18N.t("ctx.note"); document.querySelectorAll('[data-role=stat]').forEach((el,i)=>{ if(participants[i]) updateStat(participants[i],el); }); analyzeContext(); };
-$("#ctxNote").innerHTML=I18N.t("ctx.note");
+/* 字典若因故未載入，整頁仍應可用：所有 I18N 呼叫走安全包裝 */
+function TT(k,fb){ try{ return (window.I18N && typeof window.I18N.t==="function") ? window.I18N.t(k) : (fb||k); }catch(e){ return fb||k; } }
+function paintCtxNote(){ const el=$("#ctxNote"); if(el) el.innerHTML=TT("ctx.note",""); }
+window.onLangChange=function(){
+  paintCtxNote();
+  document.querySelectorAll('[data-role=stat]').forEach((el,i)=>{ if(participants[i]) updateStat(participants[i],el); });
+  analyzeContext();
+};
+paintCtxNote();
 
 /* ---- 專案鎖定與自動抓取 ---- */
 const advEl=document.getElementById("advLocal");
