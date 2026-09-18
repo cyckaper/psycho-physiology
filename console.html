@@ -191,7 +191,7 @@
       <span class="advnote" id="ctxStatus" style="margin:0"></span>
     </div>
     <div id="ctxBody"></div>
-    <p class="ctxnote">氣壓與氣溫的<b>變化</b>（與 24 小時前相比）在文獻中與情緒、自律神經活性的關聯，通常比當下的絕對值更穩定。表中「氣壓趨勢」為場次前 72 小時的逐時走勢。天氣資料由 open-meteo 依場次的時間與座標回溯查得，非現場量測，與 App 現場擷取的環境快照互為對照。</p>
+    <p class="ctxnote">氣壓與氣溫的<b>變化</b>（與 24 小時前相比）在文獻中與情緒、自律神經活性的關聯，通常比當下的絕對值更穩定。表中「氣壓趨勢」為場次前 72 小時的逐時走勢。天氣資料由 open-meteo 依場次的時間與座標回溯查得，非現場量測，與 App 現場擷取的環境快照互為對照。跨距達 3 公里以上的場次會沿途取 3 至 5 點，氣溫與濕度顯示沿途範圍；<b>跨地點比較一律採海平面氣壓</b>，因為地面氣壓隨海拔劇烈變化（每上升 100 公尺約降 12 hPa），直接比較會把爬升誤讀為天氣變化。「24h 壓差」則為起點的地面氣壓變化，對應身體實際承受的壓力。</p>
   </div>
   <div class="note" id="note" style="display:none"></div>
 </div>
@@ -481,6 +481,32 @@ function refresh(){
 ==================================================================== */
 const ctxCache = new Map();
 
+function haversineKm(a,b){
+  const R=6371, toR=d=>d*Math.PI/180;
+  const dLat=toR(b.lat-a.lat), dLng=toR(b.lng-a.lng);
+  const x=Math.sin(dLat/2)**2+Math.cos(toR(a.lat))*Math.cos(toR(b.lat))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(x));
+}
+
+/* 沿途取樣點：短程一點即可；長程依跨距取 3 或 5 點（依時間均分），
+   讓橫跨縣市的騎行不會只用出發地的天氣代表整場。 */
+function samplePoints(p){
+  const tp=(p.track||[]).map(x=>({t:parseTime(x.time),lat:+x.lat,lng:+(x.lng??x.lon)}))
+    .filter(x=>x.t!=null&&isFinite(x.lat)&&isFinite(x.lng)).sort((a,b)=>a.t-b.t);
+  if(!tp.length) return {pts:[], spanKm:0};
+  // 跨距：取起點到各點的最大直線距離（比起訖距離更能反映來回路線的實際範圍）
+  let spanKm=0;
+  for(const q of tp){ const d=haversineKm(tp[0],q); if(d>spanKm) spanKm=d; }
+  let n = spanKm<3 ? 1 : (spanKm<30 ? 3 : 5);
+  n = Math.min(n, tp.length);
+  const pts=[];
+  for(let i=0;i<n;i++){
+    const idx = n===1 ? 0 : Math.round(i*(tp.length-1)/(n-1));
+    pts.push(tp[idx]);
+  }
+  return {pts, spanKm};
+}
+
 function sessionAnchor(p){
   // 場次代表時間與座標：優先取軌跡第一點，其次生理第一筆
   const tp = (p.track||[]).map(x=>({t:parseTime(x.time),lat:+x.lat,lng:+(x.lng??x.lon)}))
@@ -507,7 +533,7 @@ async function fetchWeatherSeries(lat,lng,when){
   const key = lat.toFixed(2)+","+lng.toFixed(2)+","+ymd(new Date(when));
   if(ctxCache.has(key)) return ctxCache.get(key);
   const ageDays = (Date.now()-when)/86400000;
-  const hourly = "temperature_2m,relative_humidity_2m,surface_pressure";
+  const hourly = "temperature_2m,relative_humidity_2m,surface_pressure,pressure_msl";
   let url;
   if(ageDays <= 6){
     url = "https://api.open-meteo.com/v1/forecast?latitude="+lat+"&longitude="+lng+
@@ -525,7 +551,8 @@ async function fetchWeatherSeries(lat,lng,when){
     t: new Date(ts).getTime(),
     temp: h.temperature_2m ? h.temperature_2m[i] : null,
     rh:   h.relative_humidity_2m ? h.relative_humidity_2m[i] : null,
-    pres: h.surface_pressure ? h.surface_pressure[i] : null
+    pres: h.surface_pressure ? h.surface_pressure[i] : null,   // 身體實際承受（含海拔）
+    msl:  h.pressure_msl ? h.pressure_msl[i] : null            // 海平面氣壓（跨地點比較用）
   })).filter(x=>isFinite(x.t));
   ctxCache.set(key, series);
   return series;
@@ -555,6 +582,33 @@ function trendSpark(series,t){
          'stroke-linejoin="round" stroke-linecap="round"/></svg>';
 }
 
+function rangeTxt(lo,hi,unit,dp){
+  if(lo==null||hi==null) return null;
+  return (hi-lo) < (dp===0?1:0.4)
+    ? lo.toFixed(dp)+unit
+    : lo.toFixed(dp)+"–"+hi.toFixed(dp)+unit;
+}
+function tempCell(r){
+  if(r.along && r.along.tMin!=null){
+    const rng = rangeTxt(r.along.tMin, r.along.tMax, "°C", 1);
+    return rng+'<br><span class="flat" style="font-size:11.5px">沿途 '+r.along.n+' 點</span>';
+  }
+  return r.now&&isFinite(r.now.temp) ? r.now.temp.toFixed(1)+"°C" : "—";
+}
+function presCell(r){
+  if(r.along && r.along.mMin!=null){
+    const rng = rangeTxt(r.along.mMin, r.along.mMax, " hPa", 0);
+    return rng+'<br><span class="flat" style="font-size:11.5px">海平面值</span>';
+  }
+  return r.now&&isFinite(r.now.pres) ? r.now.pres.toFixed(0)+" hPa" : "—";
+}
+function rhCell(r){
+  if(r.along && r.along.rhMin!=null){
+    return Math.round(r.along.rhMin)+"–"+Math.round(r.along.rhMax)+"%";
+  }
+  return r.now&&isFinite(r.now.rh) ? Math.round(r.now.rh)+"%" : "—";
+}
+
 function deltaCell(v,unit,thr){
   if(v==null||!isFinite(v)) return '<span class="flat">—</span>';
   const cls = v>thr ? "up" : (v<-thr ? "down" : "flat");
@@ -573,20 +627,48 @@ async function analyzeContext(){
     const a = sessionAnchor(p);
     if(!a){ continue; }
     const hr = meanHR(p);
-    let now=null, dT=null, dP=null, spark="";
-    if(a.lat!=null){
+    const { pts, spanKm } = samplePoints(p);
+    let now=null, dT=null, dP=null, spark="", along=null;
+    if(pts.length){
       try{
-        const series = await fetchWeatherSeries(a.lat,a.lng,a.t);
-        now = atTime(series,a.t);
-        const prev = atTime(series,a.t-24*3600*1000);
+        // 起點：算 24 小時變化與氣壓趨勢（同一地點比較，用地面氣壓才對應身體感受）
+        const s0 = await fetchWeatherSeries(pts[0].lat, pts[0].lng, pts[0].t);
+        now  = atTime(s0, pts[0].t);
+        const prev = atTime(s0, pts[0].t-24*3600*1000);
         if(now&&prev){
           if(isFinite(now.temp)&&isFinite(prev.temp)) dT = now.temp-prev.temp;
           if(isFinite(now.pres)&&isFinite(prev.pres)) dP = now.pres-prev.pres;
         }
-        spark = trendSpark(series,a.t);
+        spark = trendSpark(s0, pts[0].t);
+        // 沿途多點：跨地點比較一律用海平面氣壓，排除海拔造成的假性變化
+        if(pts.length>1){
+          const temps=[], msls=[], rhs=[];
+          for(const q of pts){
+            const sq = await fetchWeatherSeries(q.lat,q.lng,q.t);
+            const w  = atTime(sq,q.t);
+            if(!w) continue;
+            if(isFinite(w.temp)) temps.push(w.temp);
+            if(isFinite(w.msl))  msls.push(w.msl);
+            if(isFinite(w.rh))   rhs.push(w.rh);
+          }
+          if(temps.length>1||msls.length>1){
+            along = {
+              n: pts.length,
+              spanKm,
+              tMin: temps.length?Math.min(...temps):null,
+              tMax: temps.length?Math.max(...temps):null,
+              tFirst: temps.length?temps[0]:null,
+              tLast: temps.length?temps[temps.length-1]:null,
+              mMin: msls.length?Math.min(...msls):null,
+              mMax: msls.length?Math.max(...msls):null,
+              rhMin: rhs.length?Math.min(...rhs):null,
+              rhMax: rhs.length?Math.max(...rhs):null
+            };
+          }
+        }
       }catch(e){ /* 單筆失敗不影響其他場次 */ }
     }
-    rows.push({label:p.label||"—", t:a.t, now, dT, dP, spark, hr,
+    rows.push({label:p.label||"—", t:a.t, now, dT, dP, spark, hr, along, spanKm,
                mins: a.endT&&a.t ? Math.round((a.endT-a.t)/60000) : null});
   }
   rows.sort((x,y)=>y.t-x.t);
@@ -600,12 +682,13 @@ async function analyzeContext(){
     html+='<tr>'+
       '<td>'+r.label+'</td>'+
       '<td class="num">'+(d.getMonth()+1)+'/'+d.getDate()+' '+p2(d.getHours())+':'+p2(d.getMinutes())+'</td>'+
-      '<td class="num">'+(r.mins!=null?r.mins+" 分":"—")+'</td>'+
-      '<td class="num">'+(r.now&&isFinite(r.now.temp)?r.now.temp.toFixed(1)+"°C":"—")+'</td>'+
+      '<td class="num">'+(r.mins!=null?r.mins+" 分":"—")+
+        (r.spanKm>=3?'<br><span class="flat" style="font-size:11.5px">'+r.spanKm.toFixed(0)+' km</span>':'')+'</td>'+
+      '<td class="num">'+tempCell(r)+'</td>'+
       '<td class="num">'+deltaCell(r.dT,"°C",1)+'</td>'+
-      '<td class="num">'+(r.now&&isFinite(r.now.pres)?r.now.pres.toFixed(0)+" hPa":"—")+'</td>'+
+      '<td class="num">'+presCell(r)+'</td>'+
       '<td class="num">'+deltaCell(r.dP," hPa",2)+'</td>'+
-      '<td class="num">'+(r.now&&isFinite(r.now.rh)?Math.round(r.now.rh)+"%":"—")+'</td>'+
+      '<td class="num">'+rhCell(r)+'</td>'+
       '<td>'+(r.spark||'<span class="flat">—</span>')+'</td>'+
       '<td class="num">'+(r.hr!=null?r.hr.toFixed(0)+" bpm":"—")+'</td>'+
     '</tr>';
