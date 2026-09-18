@@ -104,6 +104,19 @@
   details.adv{margin:10px 0;}
   details.adv summary{cursor:pointer;font-size:13.5px;color:var(--soft,#6b6750);}
   .advnote{font-size:12.5px;color:var(--soft,#6b6750);margin:6px 0 8px;max-width:640px;}
+  .ctxwrap{margin:18px 0 8px;}
+  .ctxhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;}
+  .ctxtable{width:100%;border-collapse:collapse;background:#fffdf7;
+    border:1px solid #e7ddc6;border-radius:12px;overflow:hidden;font-size:13px;}
+  .ctxtable th{background:#f3eee0;color:#3f5a2f;font-weight:700;text-align:left;
+    padding:8px 10px;border-bottom:1px solid #e7ddc6;white-space:nowrap;}
+  .ctxtable td{padding:8px 10px;border-bottom:1px solid #f0ead8;vertical-align:middle;}
+  .ctxtable tr:last-child td{border-bottom:0;}
+  .ctxtable td.num{font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .up{color:#b8694a;font-weight:700;}
+  .down{color:#2c6b5f;font-weight:700;}
+  .flat{color:#6b6750;}
+  .ctxnote{font-size:12.5px;color:#6b6750;margin:8px 0 0;max-width:760px;line-height:1.7;}
 </style>
 <script src="i18n.js" defer></script>
 </head>
@@ -170,6 +183,16 @@
 
   <div id="map"></div>
   <div class="stats" id="stats"></div>
+
+  <div class="ctxwrap" id="ctxWrap" style="display:none">
+    <div class="ctxhead">
+      <div class="lbl" style="margin:0">脈絡分析：天氣變化 × 生理</div>
+      <button class="btn ghost" id="btnCtx" style="padding:5px 12px;font-size:13px">重新分析</button>
+      <span class="advnote" id="ctxStatus" style="margin:0"></span>
+    </div>
+    <div id="ctxBody"></div>
+    <p class="ctxnote">氣壓與氣溫的<b>變化</b>（與 24 小時前相比）在文獻中與情緒、自律神經活性的關聯，通常比當下的絕對值更穩定。表中「氣壓趨勢」為場次前 72 小時的逐時走勢。天氣資料由 open-meteo 依場次的時間與座標回溯查得，非現場量測，與 App 現場擷取的環境快照互為對照。</p>
+  </div>
   <div class="note" id="note" style="display:none"></div>
 </div>
 
@@ -263,6 +286,7 @@ async function fetchFromBackend(){
   refresh();
   const sessCount=new Set(list.map(g=>g.session)).size;
   note.textContent="已載入 "+list.length+" 組(編號×場次)、共 "+sessCount+" 個場次。可直接看地圖／產出 Excel；需要離線拖檔請展開下方「進階」。";
+  analyzeContext();
 }
 
 /* ---- 參與者卡片 ---- */
@@ -448,9 +472,154 @@ function refresh(){
   if(ready)renderMap(); else {$("#stats").classList.remove("show");$("#note").style.display="none";}
 }
 
+
+/* ===== 脈絡分析：天氣變化 × 生理 =====================================
+   對每個場次回頭查 open-meteo 的逐時資料（場次前 72 小時到場次當時），
+   算出溫度與氣壓相對 24 小時前的變化量，與該場次平均心率並排。
+   近 7 天用 forecast API 的 past_days；更早的場次改用 archive API。
+   同一地點同一天只查一次，避免重複請求。
+==================================================================== */
+const ctxCache = new Map();
+
+function sessionAnchor(p){
+  // 場次代表時間與座標：優先取軌跡第一點，其次生理第一筆
+  const tp = (p.track||[]).map(x=>({t:parseTime(x.time),lat:+x.lat,lng:+(x.lng??x.lon)}))
+    .filter(x=>x.t!=null&&isFinite(x.lat)&&isFinite(x.lng)).sort((a,b)=>a.t-b.t);
+  if(tp.length) return {t:tp[0].t, lat:tp[0].lat, lng:tp[0].lng, endT:tp[tp.length-1].t};
+  const ph = (p.phys||[]).map(x=>parseTime(x.time)).filter(t=>t!=null).sort((a,b)=>a-b);
+  if(ph.length) return {t:ph[0], lat:null, lng:null, endT:ph[ph.length-1]};
+  return null;
+}
+
+function meanHR(p){
+  const v = (p.phys||[]).filter(s=>String(s.metricType)==="heart_rate")
+                        .map(s=>+s.value).filter(isFinite);
+  if(!v.length) return null;
+  return v.reduce((a,b)=>a+b,0)/v.length;
+}
+
+function ymd(d){
+  const p2=n=>String(n).padStart(2,"0");
+  return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate());
+}
+
+async function fetchWeatherSeries(lat,lng,when){
+  const key = lat.toFixed(2)+","+lng.toFixed(2)+","+ymd(new Date(when));
+  if(ctxCache.has(key)) return ctxCache.get(key);
+  const ageDays = (Date.now()-when)/86400000;
+  const hourly = "temperature_2m,relative_humidity_2m,surface_pressure";
+  let url;
+  if(ageDays <= 6){
+    url = "https://api.open-meteo.com/v1/forecast?latitude="+lat+"&longitude="+lng+
+          "&hourly="+hourly+"&past_days=7&forecast_days=1&timezone=auto";
+  }else{
+    const end = new Date(when), start = new Date(when-4*86400000);
+    url = "https://archive-api.open-meteo.com/v1/archive?latitude="+lat+"&longitude="+lng+
+          "&start_date="+ymd(start)+"&end_date="+ymd(end)+"&hourly="+hourly+"&timezone=auto";
+  }
+  const r = await fetch(url);
+  if(!r.ok) throw new Error("open-meteo HTTP "+r.status);
+  const d = await r.json();
+  const h = d.hourly||{};
+  const series = (h.time||[]).map((ts,i)=>({
+    t: new Date(ts).getTime(),
+    temp: h.temperature_2m ? h.temperature_2m[i] : null,
+    rh:   h.relative_humidity_2m ? h.relative_humidity_2m[i] : null,
+    pres: h.surface_pressure ? h.surface_pressure[i] : null
+  })).filter(x=>isFinite(x.t));
+  ctxCache.set(key, series);
+  return series;
+}
+
+function atTime(series,t){
+  if(!series.length) return null;
+  let best=series[0], bd=Math.abs(series[0].t-t);
+  for(const s of series){ const d=Math.abs(s.t-t); if(d<bd){bd=d;best=s;} }
+  return bd<=3*3600*1000 ? best : null;   // 超過 3 小時視為查無
+}
+
+function trendSpark(series,t){
+  const from = t-72*3600*1000;
+  const seg = series.filter(x=>x.t>=from && x.t<=t && isFinite(x.pres));
+  if(seg.length<4) return "";
+  const vs = seg.map(x=>x.pres);
+  const lo = Math.min(...vs), hi = Math.max(...vs), rng = (hi-lo)||1;
+  const W=110, H=26;
+  const pts = seg.map((x,i)=>{
+    const px = (i/(seg.length-1))*W;
+    const py = H - ((x.pres-lo)/rng)*(H-4) - 2;
+    return px.toFixed(1)+","+py.toFixed(1);
+  }).join(" ");
+  return '<svg class="spark" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'">'+
+         '<polyline points="'+pts+'" fill="none" stroke="#5b7a45" stroke-width="1.6" '+
+         'stroke-linejoin="round" stroke-linecap="round"/></svg>';
+}
+
+function deltaCell(v,unit,thr){
+  if(v==null||!isFinite(v)) return '<span class="flat">—</span>';
+  const cls = v>thr ? "up" : (v<-thr ? "down" : "flat");
+  const sign = v>0 ? "+" : "";
+  return '<span class="'+cls+'">'+sign+v.toFixed(1)+unit+'</span>';
+}
+
+async function analyzeContext(){
+  const st=$("#ctxStatus"), body=$("#ctxBody");
+  const ps = participants.filter(p=>(p.track&&p.track.length)||(p.phys&&p.phys.length));
+  if(!ps.length){ $("#ctxWrap").style.display="none"; return; }
+  $("#ctxWrap").style.display="block";
+  st.textContent="查詢天氣中…";
+  const rows=[];
+  for(const p of ps){
+    const a = sessionAnchor(p);
+    if(!a){ continue; }
+    const hr = meanHR(p);
+    let now=null, dT=null, dP=null, spark="";
+    if(a.lat!=null){
+      try{
+        const series = await fetchWeatherSeries(a.lat,a.lng,a.t);
+        now = atTime(series,a.t);
+        const prev = atTime(series,a.t-24*3600*1000);
+        if(now&&prev){
+          if(isFinite(now.temp)&&isFinite(prev.temp)) dT = now.temp-prev.temp;
+          if(isFinite(now.pres)&&isFinite(prev.pres)) dP = now.pres-prev.pres;
+        }
+        spark = trendSpark(series,a.t);
+      }catch(e){ /* 單筆失敗不影響其他場次 */ }
+    }
+    rows.push({label:p.label||"—", t:a.t, now, dT, dP, spark, hr,
+               mins: a.endT&&a.t ? Math.round((a.endT-a.t)/60000) : null});
+  }
+  rows.sort((x,y)=>y.t-x.t);
+  let html='<table class="ctxtable"><thead><tr>'+
+    '<th>場次</th><th>時間</th><th>時長</th><th>氣溫</th><th>24h 溫差</th>'+
+    '<th>氣壓</th><th>24h 壓差</th><th>濕度</th><th>氣壓趨勢（前 72h）</th><th>平均心率</th>'+
+    '</tr></thead><tbody>';
+  for(const r of rows){
+    const d=new Date(r.t);
+    const p2=n=>String(n).padStart(2,"0");
+    html+='<tr>'+
+      '<td>'+r.label+'</td>'+
+      '<td class="num">'+(d.getMonth()+1)+'/'+d.getDate()+' '+p2(d.getHours())+':'+p2(d.getMinutes())+'</td>'+
+      '<td class="num">'+(r.mins!=null?r.mins+" 分":"—")+'</td>'+
+      '<td class="num">'+(r.now&&isFinite(r.now.temp)?r.now.temp.toFixed(1)+"°C":"—")+'</td>'+
+      '<td class="num">'+deltaCell(r.dT,"°C",1)+'</td>'+
+      '<td class="num">'+(r.now&&isFinite(r.now.pres)?r.now.pres.toFixed(0)+" hPa":"—")+'</td>'+
+      '<td class="num">'+deltaCell(r.dP," hPa",2)+'</td>'+
+      '<td class="num">'+(r.now&&isFinite(r.now.rh)?Math.round(r.now.rh)+"%":"—")+'</td>'+
+      '<td>'+(r.spark||'<span class="flat">—</span>')+'</td>'+
+      '<td class="num">'+(r.hr!=null?r.hr.toFixed(0)+" bpm":"—")+'</td>'+
+    '</tr>';
+  }
+  html+='</tbody></table>';
+  body.innerHTML=html;
+  const ok = rows.filter(r=>r.now).length;
+  st.textContent="已分析 "+rows.length+" 個場次"+(ok<rows.length?("（"+(rows.length-ok)+" 個查無天氣，多為缺座標或時間過舊）"):"");
+}
+
 /* ---- 綁定 ---- */
 $("#btnAdd").addEventListener("click",()=>addParticipant());
 $("#btnExport").addEventListener("click",exportExcel);
+$("#btnCtx").addEventListener("click",analyzeContext);
 
 /* ---- 專案鎖定與自動抓取 ---- */
 const advEl=document.getElementById("advLocal");
