@@ -198,6 +198,7 @@
       <span class="advnote" id="ctxStatus" style="margin:0"></span>
     </div>
     <div id="ctxBody"></div>
+    <p class="ctxnote" id="ctxNote"></p>
 
     <div class="ctxhead" style="margin-top:24px">
       <div class="lbl" style="margin:0" data-i18n="pt.title">點層級分析：逐筆心率 × 當下環境</div>
@@ -211,7 +212,6 @@
       <summary data-i18n="methods.title">分析方法與取樣說明</summary>
       <div class="methods" id="methodsBody"></div>
     </details>
-    <p class="ctxnote" id="ctxNote"></p>
   </div>
   <div class="note" id="note" style="display:none"></div>
 </div>
@@ -626,7 +626,11 @@ async function fetchWeatherSeries(lat,lng,when){
     url = "https://archive-api.open-meteo.com/v1/archive?latitude="+lat+"&longitude="+lng+
           "&start_date="+ymd(start)+"&end_date="+ymd(end)+"&hourly="+hourly+"&timezone=auto";
   }
-  const r = await fetch(url);
+  const ctl = new AbortController();
+  const timer = setTimeout(()=>ctl.abort(), 12000);   // 單筆逾時，避免整批卡死
+  let r;
+  try{ r = await fetch(url,{signal:ctl.signal}); }
+  finally{ clearTimeout(timer); }
   if(!r.ok) throw new Error("open-meteo HTTP "+r.status);
   const d = await r.json();
   const h = d.hourly||{};
@@ -685,6 +689,18 @@ function presCell(r){
   }
   return r.now&&isFinite(r.now.pres) ? r.now.pres.toFixed(0)+" hPa" : "—";
 }
+/* 時長異常＝走測未正常結束，整場資料不可用於分析，必須明示 */
+function durCell(r){
+  if(r.mins==null) return "—";
+  const h=r.mins/60;
+  let txt = h>=48 ? (h/24).toFixed(1)+" "+TT("ctx.day","天")
+          : (h>=2 ? h.toFixed(1)+" "+TT("ctx.hour","小時") : r.mins+" "+TT("ctx.min","分"));
+  let out = txt;
+  if(r.spanKm>=3) out += '<br><span class="flat" style="font-size:11.5px">'+r.spanKm.toFixed(0)+' km</span>';
+  if(h>12) out += '<br><span class="up" style="font-size:11.5px">⚠ '+TT("ctx.notEnded","未正常結束")+'</span>';
+  return out;
+}
+
 function hrCell(r){
   if(!r.hr) return "—";
   const m = r.hr.mean.toFixed(0);
@@ -985,6 +1001,11 @@ function renderModelAdvice(ds, tauHR){
     advice += '<br>'+TT("md.a5","以下變項在本場次不可分析：")+
       blocked.map(b=>b.def.label+'（'+TT(VERDICT[b.dg.code].key,"")+'）').join("、")+'。';
   }
+  if(spanMin>720){
+    advice = '<h4>'+TT("md.overall","本場次的模型建議")+'</h4><p><b>'+
+      TT("md.notEnded","")+'</b></p>';
+    return html+'<div class="methods" style="margin-top:10px">'+advice+'</div>';
+  }
   if(spanMin>240){
     advice += '<br>'+TT("md.a6","場次時長超過 4 小時，晝夜節律與疲勞會隨時間累積，與環境變項難以分離；若可能，改以較短且時段固定的重複量測。");
   }
@@ -1075,7 +1096,11 @@ function fillSessionPicker(){
   participants.forEach((p,i)=>{
     const n=(p.phys||[]).filter(s=>String(s.metricType)==="heart_rate").length;
     const o=document.createElement("option");
-    o.value=i; o.textContent=(p.label||("#"+(i+1)))+"（"+n.toLocaleString()+" HR）";
+    const tps=(p.track||[]).map(x=>parseTime(x.time)).filter(t=>t!=null).sort((a,b)=>a-b);
+    const hrs=tps.length>1 ? (tps[tps.length-1]-tps[0])/3600000 : 0;
+    o.value=i;
+    o.textContent=(p.label||("#"+(i+1)))+"（"+n.toLocaleString()+" HR"+
+      (hrs>12 ? "・⚠ "+TT("ctx.notEnded","未正常結束") : "")+"）";
     sel.appendChild(o);
   });
   // 預設選心率點數最多的場次
@@ -1100,9 +1125,17 @@ async function analyzeContext(){
   const ps = participants.filter(p=>(p.track&&p.track.length)||(p.phys&&p.phys.length));
   if(!ps.length){ $("#ctxWrap").style.display="none"; return; }
   $("#ctxWrap").style.display="block";
-  st.textContent=TT("ctx.loading");
+
+  // 點層級分析只用 App 現場快照，不需天氣——先立即呈現，不被網路請求擋住
+  fillSessionPicker();
+  refreshPointPanel();
+
+  st.textContent=TT("ctx.loading")+" 0/"+ps.length;
   const rows=[];
+  let done=0;
   for(const p of ps){
+    st.textContent=TT("ctx.loading")+" "+(++done)+"/"+ps.length;
+    await new Promise(r=>setTimeout(r,0));   // 讓畫面有機會更新進度
     const a = sessionAnchor(p);
     if(!a){ continue; }
     const hr = hrStats(p);
@@ -1163,8 +1196,7 @@ async function analyzeContext(){
     html+='<tr>'+
       '<td>'+r.label+'</td>'+
       '<td class="num">'+(d.getMonth()+1)+'/'+d.getDate()+' '+p2(d.getHours())+':'+p2(d.getMinutes())+'</td>'+
-      '<td class="num">'+(r.mins!=null?r.mins+" "+TT("ctx.min"):"—")+
-        (r.spanKm>=3?'<br><span class="flat" style="font-size:11.5px">'+r.spanKm.toFixed(0)+' km</span>':'')+'</td>'+
+      '<td class="num">'+durCell(r)+'</td>'+
       '<td class="num">'+tempCell(r)+'</td>'+
       '<td class="num">'+deltaCell(r.dT,"°C",1)+'</td>'+
       '<td class="num">'+presCell(r)+'</td>'+
@@ -1176,8 +1208,6 @@ async function analyzeContext(){
   }
   html+='</tbody></table>';
   body.innerHTML=html;
-  fillSessionPicker();
-  refreshPointPanel();
   const ok = rows.filter(r=>r.now).length;
   st.textContent=TT("ctx.analysed1")+" "+rows.length+" "+TT("ctx.analysed2")+(ok<rows.length?("（"+(rows.length-ok)+" "+TT("ctx.noWeather")+"）"):"");
 }
