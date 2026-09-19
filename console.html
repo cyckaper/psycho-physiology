@@ -892,6 +892,13 @@ function blockCorrelation(ts,xs,ys,tauSec){
   return {mean:m, lo:m-tCrit*se, hi:m+tCrit*se, k:rs.length, blockSec};
 }
 
+/* p 值格式化：小於 .001 直接標示，其餘去掉前導零（APA 慣例） */
+function fmtP(v){
+  if(v==null||!isFinite(v)) return "—";
+  if(v<0.001) return "<.001";
+  return v.toFixed(3).replace(/^0/,"");
+}
+
 /* 偏相關：控制第三變項後的相關 */
 function partialR(rxy,rxz,ryz){
   const den=Math.sqrt((1-rxz*rxz)*(1-ryz*ryz));
