@@ -204,6 +204,8 @@
       <div class="lbl" style="margin:0" data-i18n="pt.title">點層級分析：逐筆心率 × 當下環境</div>
       <select id="ptSession" style="padding:5px 10px;border:1px solid #e7ddc6;border-radius:8px;
         background:#fffdf7;font:inherit;font-size:13px"></select>
+      <select id="ptMode" style="padding:5px 10px;border:1px solid #e7ddc6;border-radius:8px;
+        background:#fffdf7;font:inherit;font-size:13px"></select>
     </div>
     <div id="ptBody"></div>
     <p class="ctxnote" id="ptNote"></p>
@@ -794,7 +796,7 @@ function pointDataset(p,tolSec,maxAccM){
     if(Math.abs(T[i]-st)/1000>tolSec) continue;
     if(isFinite(tp[i].acc)&&tp[i].acc>maxAccM) continue;
     const d=new Date(st);
-    const rec={hr:+smp.value, t:st, speed:sp[i],
+    const rec={hr:+smp.value, t:st, speed:sp[i], acc:tp[i].acc,
                elapsedMin:(st-t0)/60000, hour:d.getHours()+d.getMinutes()/60};
     if(ET.length){
       const j=nearestIdx(ET,st);
@@ -956,6 +958,92 @@ const VERDICT={
   block:      {cls:"down", key:"md.vBlock"}
 };
 
+
+/* ===== 移動模式推定分類 ===============================================
+   步行、騎行、車輛、靜止、室內的心率—速度關係截然不同，混在一起分析
+   會稀釋甚至反轉相關。此處以現有訊號（速度、心率、GPS 精度）推定分類，
+   再讓分析分層進行。
+   注意：這是<b>推定</b>而非實測。可靠的做法是由 App 端記錄 CoreMotion
+   的活動類型與室內外訊號，已列入 iOS 待辦；屆時改用實測值。
+==================================================================== */
+const MODE_DEFS=[
+  {key:"indoor",  label:"推定室內 Indoor?",  color:"#8a7a56"},
+  {key:"still",   label:"靜止 Still",        color:"#6b6750"},
+  {key:"walk",    label:"步行 Walking",      color:"#5b7a45"},
+  {key:"bike",    label:"騎行 Cycling",      color:"#2c6b5f"},
+  {key:"vehicle", label:"車輛 Vehicle",      color:"#b8694a"}
+];
+
+/* 百分位數（取靜息心率基準用） */
+function quantile(v,q){
+  const a=v.filter(isFinite).sort((x,y)=>x-y);
+  if(!a.length) return null;
+  const i=(a.length-1)*q, lo=Math.floor(i), hi=Math.ceil(i);
+  return lo===hi ? a[lo] : a[lo]+(a[hi]-a[lo])*(i-lo);
+}
+
+/* 中位數平滑：消除單點跳動，避免模式閃爍 */
+function medianSmooth(arr,win){
+  const out=new Array(arr.length);
+  const h=Math.floor(win/2);
+  for(let i=0;i<arr.length;i++){
+    const seg=[];
+    for(let j=Math.max(0,i-h); j<=Math.min(arr.length-1,i+h); j++)
+      if(isFinite(arr[j])) seg.push(arr[j]);
+    if(!seg.length){ out[i]=null; continue; }
+    seg.sort((a,b)=>a-b);
+    out[i]=seg[Math.floor(seg.length/2)];
+  }
+  return out;
+}
+
+function classifyModes(ds){
+  if(!ds.length) return ds;
+  const spd=medianSmooth(ds.map(o=>o.speed),5);        // km/h，已平滑
+  const acc=medianSmooth(ds.map(o=>o.acc),5);
+  const hrRest=quantile(ds.map(o=>o.hr),0.10) ?? 70;   // 該場次的靜息心率代理值
+  const raw=ds.map((o,i)=>{
+    const v=spd[i], a=acc[i], hr=o.hr;
+    const lift=isFinite(hr)? hr-hrRest : 0;            // 心率相對靜息的抬升
+    if(v==null) return "still";
+    // GPS 精度劣化且幾乎不動 → 推定室內（室內定位常掉到 30 m 以上）
+    if(a!=null && a>30 && v<3) return "indoor";
+    if(v<1.5) return "still";
+    if(v<7)   return "walk";
+    if(v<25)  return lift>15 ? "bike" : "vehicle";     // 重疊區靠心率分辨
+    if(v<40)  return lift>25 ? "bike" : "vehicle";     // 快騎與市區車流的重疊
+    return "vehicle";
+  });
+  // 對分類結果再做一次眾數平滑，避免逐點跳動
+  const h=3;
+  ds.forEach((o,i)=>{
+    const cnt={};
+    for(let j=Math.max(0,i-h); j<=Math.min(raw.length-1,i+h); j++)
+      cnt[raw[j]]=(cnt[raw[j]]||0)+1;
+    o.mode=Object.keys(cnt).reduce((a,b)=>cnt[a]>=cnt[b]?a:b);
+  });
+  return ds;
+}
+
+function renderModeSummary(ds){
+  const total=ds.length;
+  const counts={};
+  ds.forEach(o=>counts[o.mode]=(counts[o.mode]||0)+1);
+  const present=MODE_DEFS.filter(m=>counts[m.key]);
+  if(present.length<=1) return "";
+  let bar='<div style="display:flex;height:14px;border-radius:7px;overflow:hidden;margin:6px 0 4px;border:1px solid #e7ddc6">';
+  present.forEach(m=>{
+    const pct=counts[m.key]/total*100;
+    bar+='<div title="'+m.label+' '+pct.toFixed(0)+'%" style="width:'+pct+'%;background:'+m.color+'"></div>';
+  });
+  bar+='</div><div class="advnote" style="margin:0 0 10px">';
+  bar+=present.map(m=>'<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+
+       m.color+';margin-right:4px"></span>'+m.label+' '+
+       (counts[m.key]/total*100).toFixed(0)+'%（'+counts[m.key].toLocaleString()+'）').join("　");
+  bar+='</div>';
+  return bar;
+}
+
 function renderModelAdvice(ds, tauHR){
   const hr=ds.map(o=>o.hr), spd=ds.map(o=>o.speed), el=ds.map(o=>o.elapsedMin);
   const rows=[];
@@ -1027,9 +1115,18 @@ function renderPointLevel(){
   const p=participants[idx];
   if(!p) return '<p class="ctxnote">'+TT("pt.noSession","無可分析的場次。")+'</p>';
   const tol=+$("#tol").value, acc=+$("#acc").value;
-  const ds=pointDataset(p,tol,acc);
-  if(ds.length<30)
+  const all=classifyModes(pointDataset(p,tol,acc));
+  if(all.length<30)
     return '<p class="ctxnote">'+TT("pt.tooFew","此場次對接到的心率點數不足（需 30 點以上），無法做點層級分析。")+
+           '（n = '+all.length+'）</p>';
+
+  // 模式篩選：步行／騎行／車輛／靜止／室內各自分析，避免混層稀釋相關
+  const modeSel = (typeof $("#ptMode")==="object" && $("#ptMode")) ? $("#ptMode").value : "__all__";
+  const ds = modeSel==="__all__" ? all : all.filter(o=>o.mode===modeSel);
+  const summary = renderModeSummary(all) +
+    '<div class="advnote" style="margin:0 0 10px">'+TT("pt.modeNote","移動模式為<b>推定值</b>，依速度、心率抬升與 GPS 精度判別；待 App 端記錄 CoreMotion 活動類型後改用實測值。")+'</div>';
+  if(ds.length<30)
+    return summary+'<p class="ctxnote">'+TT("pt.modeTooFew","所選模式的點數不足（需 30 點以上）。")+
            '（n = '+ds.length+'）</p>';
 
   const ts=ds.map(d=>d.t), hr=ds.map(d=>d.hr), spd=ds.map(d=>d.speed);
@@ -1039,7 +1136,8 @@ function renderPointLevel(){
   const medGap=(()=>{ const g=[]; for(let i=1;i<ts.length;i++) g.push((ts[i]-ts[i-1])/1000);
     g.sort((a,b)=>a-b); return g.length?g[Math.floor(g.length/2)]:null; })();
 
-  let html='<div class="advnote" style="margin:4px 0 10px">'+
+  let html=summary+'<div class="advnote" style="margin:4px 0 10px">'+
+    (modeSel!=="__all__" ? '<b>'+(MODE_DEFS.find(m=>m.key===modeSel)||{}).label+'</b>　・　' : '')+
     TT("pt.meta","心率點數")+' n = '+ds.length.toLocaleString()+
     '　・　'+TT("pt.span","時長")+' '+spanMin.toFixed(0)+' '+TT("ctx.min","分")+
     (medGap!=null?'　・　'+TT("pt.gap","取樣間隔中位數")+' '+medGap.toFixed(0)+' s':'')+
@@ -1122,7 +1220,23 @@ function fillSessionPicker(){
   }
 }
 
+function fillModePicker(){
+  const sel=$("#ptMode"); if(!sel) return;
+  const cur=sel.value;
+  sel.innerHTML="";
+  const all=document.createElement("option");
+  all.value="__all__"; all.textContent=TT("pt.modeAll","全部模式");
+  sel.appendChild(all);
+  MODE_DEFS.forEach(m=>{
+    const o=document.createElement("option");
+    o.value=m.key; o.textContent=m.label;
+    sel.appendChild(o);
+  });
+  if(cur) sel.value=cur;
+}
+
 function refreshPointPanel(){
+  fillModePicker();
   const el=$("#ptBody"); if(!el) return;
   el.innerHTML=renderPointLevel();
 }
@@ -1223,7 +1337,9 @@ async function analyzeContext(){
 $("#btnAdd").addEventListener("click",()=>addParticipant());
 $("#btnExport").addEventListener("click",exportExcel);
 $("#btnCtx").addEventListener("click",analyzeContext);
-document.addEventListener("change",e=>{ if(e.target&&e.target.id==="ptSession") refreshPointPanel(); });
+document.addEventListener("change",e=>{
+  if(e.target&&(e.target.id==="ptSession"||e.target.id==="ptMode")) refreshPointPanel();
+});
 ["tol","acc"].forEach(id=>{ const el=$("#"+id); if(el) el.addEventListener("change",refreshPointPanel); });
 /* 字典若因故未載入，整頁仍應可用：所有 I18N 呼叫走安全包裝 */
 function TT(k,fb){ try{ return (window.I18N && typeof window.I18N.t==="function") ? window.I18N.t(k) : (fb||k); }catch(e){ return fb||k; } }
