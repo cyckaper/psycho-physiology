@@ -117,6 +117,13 @@
   .down{color:#2c6b5f;font-weight:700;}
   .flat{color:#6b6750;}
   .ctxnote{font-size:12.5px;color:#6b6750;margin:8px 0 0;max-width:760px;line-height:1.7;}
+  .methods{max-width:820px;font-size:13px;color:#33301f;line-height:1.85;padding:4px 0 10px;}
+  .methods h4{font-family:"Noto Serif TC",Georgia,serif;font-size:14.5px;color:#3f5a2f;
+    margin:16px 0 4px;padding-bottom:3px;border-bottom:1px solid #e7ddc6;}
+  .methods h4:first-child{margin-top:6px;}
+  .methods p{margin:0 0 6px;}
+  .methods b{color:#2f4226;}
+  .methods sub{font-size:.8em;}
 </style>
 <script src="i18n.js"></script>
 </head>
@@ -191,6 +198,19 @@
       <span class="advnote" id="ctxStatus" style="margin:0"></span>
     </div>
     <div id="ctxBody"></div>
+
+    <div class="ctxhead" style="margin-top:24px">
+      <div class="lbl" style="margin:0" data-i18n="pt.title">點層級分析：逐筆心率 × 當下環境</div>
+      <select id="ptSession" style="padding:5px 10px;border:1px solid #e7ddc6;border-radius:8px;
+        background:#fffdf7;font:inherit;font-size:13px"></select>
+    </div>
+    <div id="ptBody"></div>
+    <p class="ctxnote" id="ptNote"></p>
+
+    <details class="adv" id="methodsWrap" style="margin-top:18px">
+      <summary data-i18n="methods.title">分析方法與取樣說明</summary>
+      <div class="methods" id="methodsBody"></div>
+    </details>
     <p class="ctxnote" id="ctxNote"></p>
   </div>
   <div class="note" id="note" style="display:none"></div>
@@ -525,11 +545,66 @@ function sessionAnchor(p){
   return null;
 }
 
-function meanHR(p){
+function hrStats(p){
   const v = (p.phys||[]).filter(s=>String(s.metricType)==="heart_rate")
                         .map(s=>+s.value).filter(isFinite);
   if(!v.length) return null;
-  return v.reduce((a,b)=>a+b,0)/v.length;
+  const n = v.length;
+  const mean = v.reduce((a,b)=>a+b,0)/n;
+  const sd = n>1 ? Math.sqrt(v.reduce((a,b)=>a+(b-mean)**2,0)/(n-1)) : null;
+  return {mean, sd, n};
+}
+
+/* Pearson 相關係數 */
+function pearson(xs,ys){
+  const pairs = xs.map((x,i)=>[x,ys[i]]).filter(([a,b])=>isFinite(a)&&isFinite(b));
+  const n = pairs.length;
+  if(n<3) return null;
+  const mx = pairs.reduce((a,[x])=>a+x,0)/n, my = pairs.reduce((a,[,y])=>a+y,0)/n;
+  let sxy=0,sxx=0,syy=0;
+  for(const [x,y] of pairs){ const dx=x-mx, dy=y-my; sxy+=dx*dy; sxx+=dx*dx; syy+=dy*dy; }
+  if(sxx===0||syy===0) return null;
+  return {r: sxy/Math.sqrt(sxx*syy), n};
+}
+
+/* t 分布雙尾 p 值（不完全 beta 函數） */
+function betacf(a,b,x){
+  const FPMIN=1e-300, EPS=3e-7;
+  let qab=a+b, qap=a+1, qam=a-1, c=1, d=1-qab*x/qap;
+  if(Math.abs(d)<FPMIN) d=FPMIN;
+  d=1/d; let h=d;
+  for(let m=1;m<=200;m++){
+    const m2=2*m;
+    let aa=m*(b-m)*x/((qam+m2)*(a+m2));
+    d=1+aa*d; if(Math.abs(d)<FPMIN)d=FPMIN;
+    c=1+aa/c; if(Math.abs(c)<FPMIN)c=FPMIN;
+    d=1/d; h*=d*c;
+    aa=-(a+m)*(qab+m)*x/((a+m2)*(qap+m2));
+    d=1+aa*d; if(Math.abs(d)<FPMIN)d=FPMIN;
+    c=1+aa/c; if(Math.abs(c)<FPMIN)c=FPMIN;
+    d=1/d; const del=d*c; h*=del;
+    if(Math.abs(del-1)<EPS) break;
+  }
+  return h;
+}
+function gammaln(x){
+  const cof=[76.18009172947146,-86.50532032941677,24.01409824083091,
+             -1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5];
+  let y=x, tmp=x+5.5; tmp-=(x+0.5)*Math.log(tmp);
+  let ser=1.000000000190015;
+  for(let j=0;j<6;j++) ser+=cof[j]/++y;
+  return -tmp+Math.log(2.5066282746310005*ser/x);
+}
+function betai(a,b,x){
+  if(x<=0) return 0; if(x>=1) return 1;
+  const bt=Math.exp(gammaln(a+b)-gammaln(a)-gammaln(b)+a*Math.log(x)+b*Math.log(1-x));
+  return x < (a+1)/(a+b+2) ? bt*betacf(a,b,x)/a : 1-bt*betacf(b,a,1-x)/b;
+}
+function pFromR(r,n){
+  const df=n-2;
+  if(df<1||Math.abs(r)>=1) return null;
+  const t=r*Math.sqrt(df/(1-r*r));
+  return betai(df/2, 0.5, df/(df+t*t));
 }
 
 function ymd(d){
@@ -610,6 +685,14 @@ function presCell(r){
   }
   return r.now&&isFinite(r.now.pres) ? r.now.pres.toFixed(0)+" hPa" : "—";
 }
+function hrCell(r){
+  if(!r.hr) return "—";
+  const m = r.hr.mean.toFixed(0);
+  const sd = r.hr.sd!=null ? " ± "+r.hr.sd.toFixed(0) : "";
+  return m+sd+" bpm"+
+    '<br><span class="flat" style="font-size:11.5px">n = '+r.hr.n.toLocaleString()+'</span>';
+}
+
 function rhCell(r){
   if(r.along && r.along.rhMin!=null){
     return Math.round(r.along.rhMin)+"–"+Math.round(r.along.rhMax)+"%";
@@ -624,6 +707,394 @@ function deltaCell(v,unit,thr){
   return '<span class="'+cls+'">'+sign+v.toFixed(1)+unit+'</span>';
 }
 
+
+/* ===== 變項盤整：所有可能影響心率的因子 ==========================
+   把場次層級的變項分類列出，各自與平均心率求相關，依效果量排序。
+   目的不是做統計推論（場次數太少），而是讓主導因子與干擾一眼可見。
+================================================================= */
+
+/* 從軌跡算移動特徵：總距離、平均速度——活動強度是心率最主要的決定因子，
+   不先看清它，天氣的效果無從談起。 */
+function motionStats(p){
+  const tp=(p.track||[]).map(x=>({t:parseTime(x.time),lat:+x.lat,lng:+(x.lng??x.lon)}))
+    .filter(x=>x.t!=null&&isFinite(x.lat)&&isFinite(x.lng)).sort((a,b)=>a.t-b.t);
+  if(tp.length<2) return null;
+  let distKm=0;
+  for(let i=1;i<tp.length;i++) distKm+=haversineKm(tp[i-1],tp[i]);
+  const hours=(tp[tp.length-1].t-tp[0].t)/3600000;
+  return {distKm, hours, speedKmh: hours>0 ? distKm/hours : null,
+          startHour: new Date(tp[0].t).getHours(),
+          weekday: new Date(tp[0].t).getDay()};
+}
+
+/* 現場環境快照的平均值（App 走測當下實測，與回溯天氣互為對照） */
+function envMeans(p){
+  const keys=["airTempC","apparentTempC","humidityPct","usAqi","pm25","pm10","windSpeedMs"];
+  const out={};
+  for(const k of keys){
+    const v=(p.env||[]).map(e=>e&&e.snapshot?+e.snapshot[k]:NaN).filter(isFinite);
+    out[k]= v.length ? v.reduce((a,b)=>a+b,0)/v.length : null;
+  }
+  return out;
+}
+
+const PT_DEFS=[
+  {key:"speed",      cat:"活動 Activity", label:"速度 Speed (km/h)"},
+  {key:"hour",       cat:"時間 Time",     label:"時刻 Hour of day"},
+  {key:"elapsedMin", cat:"時間 Time",     label:"已經過 Elapsed (min)"},
+  {key:"eTemp",      cat:"現場環境 On-site", label:"氣溫 AirTemp (°C)"},
+  {key:"eApp",       cat:"現場環境 On-site", label:"體感溫度 ApparentTemp (°C)"},
+  {key:"eRH",        cat:"現場環境 On-site", label:"濕度 Humidity (%)"},
+  {key:"eAqi",       cat:"現場環境 On-site", label:"空氣品質 AQI"},
+  {key:"ePm25",      cat:"現場環境 On-site", label:"PM2.5 (µg/m³)"},
+  {key:"ePm10",      cat:"現場環境 On-site", label:"PM10 (µg/m³)"},
+  {key:"eWind",      cat:"現場環境 On-site", label:"風速 WindSpeed (m/s)"}
+];
+
+/* 逐點速度：取前後各兩點的位移除以時距，稍作平滑避免單點跳動 */
+function trackSpeeds(tp){
+  const sp=new Array(tp.length).fill(null);
+  for(let i=0;i<tp.length;i++){
+    const a=tp[Math.max(0,i-2)], b=tp[Math.min(tp.length-1,i+2)];
+    const dtH=(b.t-a.t)/3600000;
+    sp[i]= dtH>0 ? haversineKm(a,b)/dtH : null;
+  }
+  return sp;
+}
+
+/* 點層級資料集：每一筆心率配上當下的速度、時刻、經過時間與現場環境快照 */
+function pointDataset(p,tolSec,maxAccM){
+  const tp=(p.track||[]).map(x=>({t:parseTime(x.time),lat:+x.lat,lng:+(x.lng??x.lon),acc:+x.accuracyM}))
+    .filter(x=>x.t!=null&&isFinite(x.lat)&&isFinite(x.lng)).sort((a,b)=>a.t-b.t);
+  if(tp.length<5) return [];
+  const T=tp.map(x=>x.t), sp=trackSpeeds(tp), t0=T[0];
+  const ev=(p.env||[]).map(e=>({t:parseTime(e.time),s:e.snapshot||{}})).filter(e=>e.t!=null).sort((a,b)=>a.t-b.t);
+  const ET=ev.map(e=>e.t);
+  const out=[];
+  for(const smp of (p.phys||[])){
+    if(String(smp.metricType)!=="heart_rate") continue;
+    const st=parseTime(smp.time); if(st==null) continue;
+    const i=nearestIdx(T,st);
+    if(Math.abs(T[i]-st)/1000>tolSec) continue;
+    if(isFinite(tp[i].acc)&&tp[i].acc>maxAccM) continue;
+    const d=new Date(st);
+    const rec={hr:+smp.value, t:st, speed:sp[i],
+               elapsedMin:(st-t0)/60000, hour:d.getHours()+d.getMinutes()/60};
+    if(ET.length){
+      const j=nearestIdx(ET,st);
+      if(Math.abs(ET[j]-st)/1000<=900){
+        const e=ev[j].s;
+        rec.eTemp=+e.airTempC; rec.eApp=+e.apparentTempC; rec.eRH=+e.humidityPct;
+        rec.eAqi=+e.usAqi; rec.ePm25=+e.pm25; rec.ePm10=+e.pm10; rec.eWind=+e.windSpeedMs;
+      }
+    }
+    if(isFinite(rec.hr)) out.push(rec);
+  }
+  return out.sort((a,b)=>a.t-b.t);
+}
+
+/* ── 自相關的分級處理 ─────────────────────────────────────────
+   取樣間隔不均勻（運動中約 5 秒一筆，靜止時稀疏），因此不以「相鄰兩筆」
+   定義自相關，而是用實際時間戳估計去相關時間 τ：訊號隔多久才算獨立。
+   第一級：僅報告 r（效果量），永遠成立。
+   第二級：以 τ 折算有效樣本數 n_eff = T / (2τ)，用於 p 值。
+   第三級：切成長於 2τ 的區塊，各自求 r，以區塊間變異給信賴區間——
+           用到的資訊最多，且不必假設取樣均勻或誤差結構。
+──────────────────────────────────────────────────────────── */
+
+/* 在已排序的時間序列中，找最接近 target 的索引 */
+function idxNear(T,target){
+  let lo=0,hi=T.length-1;
+  while(lo<hi){ const m=(lo+hi)>>1; if(T[m]<target) lo=m+1; else hi=m; }
+  if(lo>0 && Math.abs(T[lo-1]-target)<Math.abs(T[lo]-target)) return lo-1;
+  return lo;
+}
+
+/* 以實際時間差估計自相關函數，回傳去相關時間 τ（秒） */
+function decorrelationTimeSec(ts,xs){
+  const pairs=[];
+  for(let i=0;i<ts.length;i++) if(isFinite(xs[i])) pairs.push([ts[i],xs[i]]);
+  if(pairs.length<20) return null;
+  const T=pairs.map(p=>p[0]), X=pairs.map(p=>p[1]);
+  const span=(T[T.length-1]-T[0])/1000;
+  if(span<=0) return null;
+  const lags=[5,10,20,30,60,120,300,600,1200].filter(L=>L<span/3);
+  if(!lags.length) return null;
+  let prevL=0, prevA=1;
+  for(const L of lags){
+    const a=[],b=[];
+    for(let i=0;i<T.length;i++){
+      const j=idxNear(T,T[i]+L*1000);
+      if(j<=i) continue;
+      const gap=Math.abs((T[j]-T[i])/1000-L);
+      if(gap>L*0.35) continue;          // 只採實際間隔接近該 lag 的配對
+      a.push(X[i]); b.push(X[j]);
+    }
+    if(a.length<15) continue;
+    const pr=pearson(a,b);
+    if(!pr) continue;
+    const A=pr.r;
+    if(A<=Math.exp(-1)){                 // 降到 1/e：線性內插求 τ
+      const t=prevL + (prevA-Math.exp(-1))/Math.max(1e-6,(prevA-A))*(L-prevL);
+      return Math.max(1,t);
+    }
+    prevL=L; prevA=A;
+  }
+  return prevL>0 ? prevL*1.5 : null;     // 整段都還在相關：τ 至少大於最大 lag
+}
+
+/* 第二級：時間感知的有效樣本數 */
+function effectiveNTime(ts,tauSec,nPts){
+  if(!tauSec||ts.length<2) return nPts;
+  const T=(ts[ts.length-1]-ts[0])/1000;
+  return Math.max(3, Math.min(nPts, Math.round(T/(2*tauSec))));
+}
+
+/* 第三級：區塊重抽——切成長於 2τ 的區塊，各自算 r，以區塊間變異求 95% CI */
+function blockCorrelation(ts,xs,ys,tauSec){
+  if(!tauSec) return null;
+  const T0=ts[0], Tn=ts[ts.length-1], span=(Tn-T0)/1000;
+  const blockSec=Math.max(2*tauSec, span/20);
+  const K=Math.floor(span/blockSec);
+  if(K<4) return null;                    // 區塊太少，CI 無意義
+  const rs=[];
+  for(let k=0;k<K;k++){
+    const lo=T0+k*blockSec*1000, hi=lo+blockSec*1000;
+    const bx=[],by=[];
+    for(let i=0;i<ts.length;i++){
+      if(ts[i]>=lo&&ts[i]<hi&&isFinite(xs[i])&&isFinite(ys[i])){ bx.push(xs[i]); by.push(ys[i]); }
+    }
+    if(bx.length<15) continue;
+    const pr=pearson(bx,by);
+    if(pr&&isFinite(pr.r)) rs.push(pr.r);
+  }
+  if(rs.length<4) return null;
+  const m=rs.reduce((a,b)=>a+b,0)/rs.length;
+  const sd=Math.sqrt(rs.reduce((a,b)=>a+(b-m)**2,0)/(rs.length-1));
+  const se=sd/Math.sqrt(rs.length);
+  const tCrit=2.2;                        // 約 df≥10 的 95% 雙尾臨界值，保守取值
+  return {mean:m, lo:m-tCrit*se, hi:m+tCrit*se, k:rs.length, blockSec};
+}
+
+/* 偏相關：控制第三變項後的相關 */
+function partialR(rxy,rxz,ryz){
+  const den=Math.sqrt((1-rxz*rxz)*(1-ryz*ryz));
+  return den>0 ? (rxy-rxz*ryz)/den : null;
+}
+
+
+/* ===== 分析模型診斷 =================================================
+   不同路線的變項結構差異極大：有的場次氣溫幾乎不變、有的與經過時間
+   完全共線、有的環境快照只有一兩筆。套用同一套分析會得到假結果。
+   此處就實際資料判定每個變項的可分析性，並推薦對應的模型。
+==================================================================== */
+
+function basicStats(xs){
+  const v=xs.filter(isFinite);
+  if(!v.length) return null;
+  const n=v.length, mean=v.reduce((a,b)=>a+b,0)/n;
+  const sd=n>1?Math.sqrt(v.reduce((a,b)=>a+(b-mean)**2,0)/(n-1)):0;
+  const lo=Math.min(...v), hi=Math.max(...v);
+  const distinct=new Set(v.map(x=>Math.round(x*1000)/1000)).size;
+  return {n, mean, sd, lo, hi, range:hi-lo, distinct,
+          cv: Math.abs(mean)>1e-9 ? sd/Math.abs(mean)*100 : null};
+}
+
+/* 單一變項的診斷與判定 */
+function diagnoseVar(ds, key, hr, spd, elapsed, tauHR){
+  const xs=ds.map(o=>o[key]);
+  const st=basicStats(xs);
+  if(!st || st.n<20) return {code:"none", st};
+
+  const rSpeed = key==="speed" ? null : (pearson(xs,spd)||{}).r;
+  const rTime  = key==="elapsedMin" ? null : (pearson(xs,elapsed)||{}).r;
+  const tauX   = decorrelationTimeSec(ds.map(o=>o.t), xs);
+  const tau    = Math.max(tauHR||0, tauX||0) || null;
+  const ts     = ds.map(o=>o.t);
+  const span   = (ts[ts.length-1]-ts[0])/1000;
+  const blocks = tau ? Math.floor(span/Math.max(2*tau, span/20)) : 0;
+
+  let code;
+  if(st.distinct<3)                          code="noVar";      // 變異不足
+  else if(rTime!=null && Math.abs(rTime)>0.95) code="timeCollin"; // 與時間共線
+  else if(rSpeed!=null && Math.abs(rSpeed)>0.85) code="spdCollin"; // 與速度共線
+  else if(blocks>=4)                          code="block";      // 可用區塊法
+  else                                        code="effectOnly"; // 只報效果量
+
+  return {code, st, rSpeed, rTime, tau, blocks};
+}
+
+const VERDICT={
+  none:       {cls:"flat", key:"md.vNone"},
+  noVar:      {cls:"flat", key:"md.vNoVar"},
+  timeCollin: {cls:"up",   key:"md.vTime"},
+  spdCollin:  {cls:"up",   key:"md.vSpeed"},
+  effectOnly: {cls:"flat", key:"md.vEffect"},
+  block:      {cls:"down", key:"md.vBlock"}
+};
+
+function renderModelAdvice(ds, tauHR){
+  const hr=ds.map(o=>o.hr), spd=ds.map(o=>o.speed), el=ds.map(o=>o.elapsedMin);
+  const rows=[];
+  for(const d of PT_DEFS){
+    rows.push({def:d, dg:diagnoseVar(ds,d.key,hr,spd,el,tauHR)});
+  }
+
+  let html='<table class="ctxtable"><thead><tr>'+
+    '<th>'+TT("inv.colVar","變項")+'</th>'+
+    '<th>'+TT("md.colVar","變異")+'</th>'+
+    '<th>'+TT("md.colSpd","與速度共線")+'</th>'+
+    '<th>'+TT("md.colTime","與時間共線")+'</th>'+
+    '<th>'+TT("md.colBlocks","可用區塊")+'</th>'+
+    '<th>'+TT("md.colVerdict","判定與建議")+'</th>'+
+    '</tr></thead><tbody>';
+
+  for(const {def,dg} of rows){
+    const v=VERDICT[dg.code];
+    const st=dg.st;
+    const varTxt = st ? (st.range<0.005 ? TT("md.none","無") :
+        st.range.toFixed(st.range<1?2:1)+(st.cv!=null?'<br><span class="flat" style="font-size:11.5px">CV '+st.cv.toFixed(1)+'%・'+st.distinct+' '+TT("md.levels","階")+'</span>':''))
+      : "—";
+    const col=(r)=> r==null?'<span class="flat">—</span>'
+      : '<span class="'+(Math.abs(r)>0.85?"up":(Math.abs(r)>0.5?"flat":"down"))+'">'+Math.abs(r).toFixed(2)+'</span>';
+    html+='<tr><td>'+def.label+'</td>'+
+      '<td class="num">'+varTxt+'</td>'+
+      '<td class="num">'+col(dg.rSpeed)+'</td>'+
+      '<td class="num">'+col(dg.rTime)+'</td>'+
+      '<td class="num flat">'+(dg.blocks||"—")+'</td>'+
+      '<td><span class="'+v.cls+'">'+TT(v.key,"")+'</span></td></tr>';
+  }
+  html+='</tbody></table>';
+
+  // 整場次的模型建議：依可用變項數與結構產生
+  const usable=rows.filter(r=>r.dg.code==="block").map(r=>r.def.label);
+  const effOnly=rows.filter(r=>r.dg.code==="effectOnly").length;
+  const blocked=rows.filter(r=>["noVar","timeCollin","spdCollin"].includes(r.dg.code));
+  const ts=ds.map(o=>o.t), spanMin=(ts[ts.length-1]-ts[0])/60000;
+
+  let advice='<h4>'+TT("md.overall","本場次的模型建議")+'</h4><p>';
+  if(usable.length){
+    advice += TT("md.a1","可用區塊法分析的變項：")+'<b>'+usable.join("、")+'</b>。'+
+              TT("md.a2","建議以「控制速度後的區塊相關」為主要結果，信賴區間不涵蓋 0 才視為值得追究的訊號；未控制的相關僅供對照。");
+  }else if(effOnly){
+    advice += TT("md.a3","本場次沒有變項具備足夠的區塊數，僅能報告效果量（r），不做統計推論。時長過短或訊號持續性過高皆會導致此結果。");
+  }else{
+    advice += TT("md.a4","本場次的環境變項變異不足或與活動、時間高度共線，不建議在此場次內檢驗環境效果。");
+  }
+  if(blocked.length){
+    advice += '<br>'+TT("md.a5","以下變項在本場次不可分析：")+
+      blocked.map(b=>b.def.label+'（'+TT(VERDICT[b.dg.code].key,"")+'）').join("、")+'。';
+  }
+  if(spanMin>240){
+    advice += '<br>'+TT("md.a6","場次時長超過 4 小時，晝夜節律與疲勞會隨時間累積，與環境變項難以分離；若可能，改以較短且時段固定的重複量測。");
+  }
+  advice += '</p><p>'+TT("md.a7","跨場次的環境效果不應以平均值相關檢驗。較可信的做法是<b>配對設計</b>：同一條路線、相近時段、不同天氣條件各走數次，以配對差值檢定。如此活動強度與節律自然被控制，剩下的差異才可歸因於環境。")+'</p>';
+
+  return html+'<div class="methods" style="margin-top:10px">'+advice+'</div>';
+}
+
+function renderPointLevel(){
+  const sel=$("#ptSession");
+  const idx=sel? +sel.value : 0;
+  const p=participants[idx];
+  if(!p) return '<p class="ctxnote">'+TT("pt.noSession","無可分析的場次。")+'</p>';
+  const tol=+$("#tol").value, acc=+$("#acc").value;
+  const ds=pointDataset(p,tol,acc);
+  if(ds.length<30)
+    return '<p class="ctxnote">'+TT("pt.tooFew","此場次對接到的心率點數不足（需 30 點以上），無法做點層級分析。")+
+           '（n = '+ds.length+'）</p>';
+
+  const ts=ds.map(d=>d.t), hr=ds.map(d=>d.hr), spd=ds.map(d=>d.speed);
+  const spanMin=(ts[ts.length-1]-ts[0])/60000;
+  const tauHR=decorrelationTimeSec(ts,hr);
+  const prHRspd=pearson(spd,hr);
+  const medGap=(()=>{ const g=[]; for(let i=1;i<ts.length;i++) g.push((ts[i]-ts[i-1])/1000);
+    g.sort((a,b)=>a-b); return g.length?g[Math.floor(g.length/2)]:null; })();
+
+  let html='<div class="advnote" style="margin:4px 0 10px">'+
+    TT("pt.meta","心率點數")+' n = '+ds.length.toLocaleString()+
+    '　・　'+TT("pt.span","時長")+' '+spanMin.toFixed(0)+' '+TT("ctx.min","分")+
+    (medGap!=null?'　・　'+TT("pt.gap","取樣間隔中位數")+' '+medGap.toFixed(0)+' s':'')+
+    (tauHR?'　・　'+TT("pt.tau","心率去相關時間 τ")+' ≈ '+tauHR.toFixed(0)+' s':'')+
+    '</div>';
+
+  html+='<table class="ctxtable"><thead><tr>'+
+    '<th>'+TT("inv.colVar","變項")+'</th>'+
+    '<th>r</th>'+
+    '<th>'+TT("pt.partial","控制速度後 r")+'</th>'+
+    '<th>τ</th>'+
+    '<th>n<sub>eff</sub></th>'+
+    '<th>p</th>'+
+    '<th>'+TT("pt.blockCI","區塊 r（95% CI）")+'</th>'+
+    '</tr></thead><tbody>';
+
+  const cls=v=>Math.abs(v)>=0.3?(v>0?"up":"down"):"flat";
+  for(const d of PT_DEFS){
+    const xs=ds.map(o=>o[d.key]);
+    const pr=pearson(xs,hr);
+    if(!pr){
+      html+='<tr><td>'+d.label+'</td>'+'<td class="num flat">—</td>'.repeat(6)+'</tr>';
+      continue;
+    }
+    let pa=null;
+    if(d.key!=="speed" && prHRspd){
+      const prXspd=pearson(xs,spd);
+      if(prXspd) pa=partialR(pr.r, prXspd.r, prHRspd.r);
+    }
+    const tauX=decorrelationTimeSec(ts,xs);
+    const tau=Math.max(tauHR||0, tauX||0) || null;
+    const nEff=effectiveNTime(ts,tau,pr.n);
+    const pv=pFromR(pa!=null?pa:pr.r, nEff);
+    const bc=blockCorrelation(ts,xs,hr,tau);
+
+    html+='<tr><td>'+d.label+
+      '<br><span class="flat" style="font-size:11.5px">'+d.cat+'</span></td>'+
+      '<td class="num"><span class="'+cls(pr.r)+'">'+(pr.r>0?"+":"")+pr.r.toFixed(2)+'</span>'+
+        '<br><span class="flat" style="font-size:11.5px">n='+pr.n.toLocaleString()+'</span></td>'+
+      '<td class="num">'+(pa!=null?'<span class="'+cls(pa)+'">'+(pa>0?"+":"")+pa.toFixed(2)+'</span>':'<span class="flat">—</span>')+'</td>'+
+      '<td class="num flat">'+(tau?tau.toFixed(0)+' s':'—')+'</td>'+
+      '<td class="num flat">'+nEff.toLocaleString()+'</td>'+
+      '<td class="num flat">'+fmtP(pv)+'</td>'+
+      '<td class="num">'+(bc?
+          '<span class="'+cls(bc.mean)+'">'+(bc.mean>0?"+":"")+bc.mean.toFixed(2)+'</span>'+
+          '<br><span class="flat" style="font-size:11.5px">['+bc.lo.toFixed(2)+', '+bc.hi.toFixed(2)+']　k='+bc.k+'</span>'
+          :'<span class="flat">—</span>')+'</td>'+
+      '</tr>';
+  }
+  html+='</tbody></table>';
+  html+='<div class="ctxhead" style="margin-top:22px"><div class="lbl" style="margin:0">'+
+        TT("md.title","分析模型診斷：哪些變項值得分析")+'</div></div>';
+  html+=renderModelAdvice(ds, tauHR);
+  return html;
+}
+
+function fillSessionPicker(){
+  const sel=$("#ptSession"); if(!sel) return;
+  const cur=sel.value;
+  sel.innerHTML="";
+  participants.forEach((p,i)=>{
+    const n=(p.phys||[]).filter(s=>String(s.metricType)==="heart_rate").length;
+    const o=document.createElement("option");
+    o.value=i; o.textContent=(p.label||("#"+(i+1)))+"（"+n.toLocaleString()+" HR）";
+    sel.appendChild(o);
+  });
+  // 預設選心率點數最多的場次
+  if(cur && sel.querySelector('option[value="'+cur+'"]')) sel.value=cur;
+  else{
+    let best=0,bn=-1;
+    participants.forEach((p,i)=>{
+      const n=(p.phys||[]).filter(s=>String(s.metricType)==="heart_rate").length;
+      if(n>bn){bn=n;best=i;}
+    });
+    sel.value=best;
+  }
+}
+
+function refreshPointPanel(){
+  const el=$("#ptBody"); if(!el) return;
+  el.innerHTML=renderPointLevel();
+}
+
 async function analyzeContext(){
   const st=$("#ctxStatus"), body=$("#ctxBody");
   const ps = participants.filter(p=>(p.track&&p.track.length)||(p.phys&&p.phys.length));
@@ -634,7 +1105,7 @@ async function analyzeContext(){
   for(const p of ps){
     const a = sessionAnchor(p);
     if(!a){ continue; }
-    const hr = meanHR(p);
+    const hr = hrStats(p);
     const { pts, spanKm } = samplePoints(p);
     let now=null, dT=null, dP=null, spark="", along=null;
     if(pts.length){
@@ -677,6 +1148,7 @@ async function analyzeContext(){
       }catch(e){ /* 單筆失敗不影響其他場次 */ }
     }
     rows.push({label:p.label||"—", t:a.t, now, dT, dP, spark, hr, along, spanKm,
+               motion: motionStats(p), envm: envMeans(p),
                mins: a.endT&&a.t ? Math.round((a.endT-a.t)/60000) : null});
   }
   rows.sort((x,y)=>y.t-x.t);
@@ -699,11 +1171,13 @@ async function analyzeContext(){
       '<td class="num">'+deltaCell(r.dP," hPa",2)+'</td>'+
       '<td class="num">'+rhCell(r)+'</td>'+
       '<td>'+(r.spark||'<span class="flat">—</span>')+'</td>'+
-      '<td class="num">'+(r.hr!=null?r.hr.toFixed(0)+" bpm":"—")+'</td>'+
+      '<td class="num">'+hrCell(r)+'</td>'+
     '</tr>';
   }
   html+='</tbody></table>';
   body.innerHTML=html;
+  fillSessionPicker();
+  refreshPointPanel();
   const ok = rows.filter(r=>r.now).length;
   st.textContent=TT("ctx.analysed1")+" "+rows.length+" "+TT("ctx.analysed2")+(ok<rows.length?("（"+(rows.length-ok)+" "+TT("ctx.noWeather")+"）"):"");
 }
@@ -712,11 +1186,16 @@ async function analyzeContext(){
 $("#btnAdd").addEventListener("click",()=>addParticipant());
 $("#btnExport").addEventListener("click",exportExcel);
 $("#btnCtx").addEventListener("click",analyzeContext);
+document.addEventListener("change",e=>{ if(e.target&&e.target.id==="ptSession") refreshPointPanel(); });
+["tol","acc"].forEach(id=>{ const el=$("#"+id); if(el) el.addEventListener("change",refreshPointPanel); });
 /* 字典若因故未載入，整頁仍應可用：所有 I18N 呼叫走安全包裝 */
 function TT(k,fb){ try{ return (window.I18N && typeof window.I18N.t==="function") ? window.I18N.t(k) : (fb||k); }catch(e){ return fb||k; } }
 function paintCtxNote(){ const el=$("#ctxNote"); if(el) el.innerHTML=TT("ctx.note",""); }
 window.onLangChange=function(){
-  paintCtxNote();
+  paintCtxNote(); paintPtNote(); paintMethods();
+function paintPtNote(){ const el=$("#ptNote"); if(el) el.innerHTML=TT("pt.note",""); }
+function paintMethods(){ const el=$("#methodsBody"); if(el) el.innerHTML=TT("methods.body",""); }
+paintPtNote(); paintMethods();
   document.querySelectorAll('[data-role=stat]').forEach((el,i)=>{ if(participants[i]) updateStat(participants[i],el); });
   analyzeContext();
 };
