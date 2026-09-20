@@ -1075,20 +1075,40 @@ function classifyModes(ds){
 
 function renderModeSummary(ds){
   const total=ds.length;
-  const counts={};
-  ds.forEach(o=>counts[o.mode]=(counts[o.mode]||0)+1);
+  const counts={}, secs={};
+  // 心率取樣間隔並不均勻：運動中約 5 秒一筆，靜止時稀疏。
+  // 只看點數佔比會讓密集取樣的時段（通常是運動）被大幅放大，
+  // 必須另外算時間佔比。單點代表的時距上限取 5 分鐘，避免一個點涵蓋數小時。
+  const CAP=300;
+  ds.forEach((o,i)=>{
+    counts[o.mode]=(counts[o.mode]||0)+1;
+    const prev=i>0?(o.t-ds[i-1].t)/1000:0;
+    const next=i<ds.length-1?(ds[i+1].t-o.t)/1000:0;
+    const w=Math.min(CAP,(Math.min(prev,CAP)+Math.min(next,CAP))/2);
+    secs[o.mode]=(secs[o.mode]||0)+w;
+  });
+  const totalSec=Object.values(secs).reduce((a,b)=>a+b,0)||1;
   const present=MODE_DEFS.filter(m=>counts[m.key]);
   if(present.length<=1) return "";
+
+  // 長條依「時間」佔比呈現，那才是受測者實際經歷的比例
   let bar='<div style="display:flex;height:14px;border-radius:7px;overflow:hidden;margin:6px 0 4px;border:1px solid #e7ddc6">';
   present.forEach(m=>{
-    const pct=counts[m.key]/total*100;
+    const pct=(secs[m.key]||0)/totalSec*100;
     bar+='<div title="'+m.label+' '+pct.toFixed(0)+'%" style="width:'+pct+'%;background:'+m.color+'"></div>';
   });
-  bar+='</div><div class="advnote" style="margin:0 0 10px">';
-  bar+=present.map(m=>'<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+
-       m.color+';margin-right:4px"></span>'+m.label+' '+
-       (counts[m.key]/total*100).toFixed(0)+'%（'+counts[m.key].toLocaleString()+'）').join("　");
-  bar+='</div>';
+  bar+='</div><div class="advnote" style="margin:0 0 4px">';
+  bar+=present.map(m=>{
+    const tp=(secs[m.key]||0)/totalSec*100, pp=counts[m.key]/total*100;
+    const mins=(secs[m.key]||0)/60;
+    return '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+
+      m.color+';margin-right:4px"></span>'+m.label+' '+tp.toFixed(0)+'%（'+
+      (mins>=60?(mins/60).toFixed(1)+' '+TT("ctx.hour","小時"):mins.toFixed(0)+' '+TT("ctx.min","分"))+
+      '・'+TT("pt.pts","點")+' '+pp.toFixed(0)+'%）';
+  }).join("　");
+  bar+='</div><div class="advnote" style="margin:0 0 10px;color:#8a7a56">'+
+       TT("pt.modeWeight","長條與第一個百分比為<b>時間</b>佔比；括號內為點數佔比。兩者差距大時代表取樣密度不均——運動中約 5 秒一筆、靜止時稀疏，點數會高估運動時段的份量，匯總的相關也會被那段主導。")+
+       '</div>';
   return bar;
 }
 
