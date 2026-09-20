@@ -3,218 +3,438 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>HEALS 場域研究 · 操作手冊</title>
+<title>操作手冊 — 讀人 · 即時心理生理研究平台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@500;700&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --cream:#faf6ea; --paper:#fffdf7; --line:#e7ddc6;
-    --moss:#5b7a45; --moss-deep:#3f5a2f; --teal:#2c6b5f; --clay:#b8694a;
-    --ink:#33301f; --soft:#6b6750;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--cream);color:var(--ink);
-    font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","PingFang TC",sans-serif;
-    line-height:1.7;font-size:16px;}
-  .wrap{max-width:760px;margin:0 auto;padding:22px 18px 80px;}
-  h1{font-family:"Noto Serif TC",Georgia,serif;font-size:25px;margin:.2em 0 .1em;color:var(--moss-deep);letter-spacing:.5px;}
-  .sub{color:var(--soft);font-size:14.5px;margin:0 0 18px;}
-  h2{font-family:"Noto Serif TC",Georgia,serif;font-size:20px;color:var(--moss-deep);
-    margin:30px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--line);}
-  h3{font-size:16.5px;margin:18px 0 6px;color:var(--teal);}
-  p{margin:.5em 0;}
-  .rule{height:3px;background:linear-gradient(90deg,var(--moss),var(--teal));border-radius:3px;margin:6px 0 4px;}
-  .phase{margin:18px 0;border-left:4px solid var(--moss);background:var(--paper);
-    border:1px solid var(--line);border-left:4px solid var(--moss);border-radius:10px;padding:14px 16px;}
-  .phase.b{border-left-color:var(--teal)}
-  .phase.c{border-left-color:var(--clay)}
-  .phase.d{border-left-color:#9a7b2e}
-  .phase.e{border-left-color:var(--moss-deep)}
-  .ptitle{font-family:"Noto Serif TC",serif;font-size:17px;color:var(--moss-deep);margin:0 0 4px;font-weight:600;}
-  .step{margin:12px 0;padding:11px 13px;background:var(--cream);border:1px solid var(--line);border-radius:9px;}
-  .step .n{display:inline-block;min-width:26px;height:26px;line-height:26px;text-align:center;
-    background:var(--moss);color:#fff;border-radius:50%;font-weight:700;font-size:14px;margin-right:8px;}
-  .step .t{font-weight:700;}
-  .step .lab{display:inline-block;font-size:12.5px;font-weight:700;color:#fff;background:var(--teal);
-    border-radius:6px;padding:1px 7px;margin-right:6px;}
-  .step .lab.do{background:var(--clay)}
-  .step .row{margin:5px 0 0;}
-  .chk{color:var(--moss-deep);font-weight:600;}
-  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:14.5px;background:var(--paper);
-    border:1px solid var(--line);border-radius:8px;overflow:hidden;}
-  th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top;}
-  th{background:#f1ece0;color:var(--moss-deep);font-weight:700;}
-  tr:last-child td{border-bottom:none;}
-  code{background:#f1ece0;border:1px solid var(--line);border-radius:5px;padding:1px 6px;
-    font-family:"SF Mono",Menlo,Consolas,monospace;font-size:13.5px;color:var(--moss-deep);}
-  .note{background:#fff8ee;border:1px solid #ecd9bf;border-left:4px solid var(--clay);
-    border-radius:9px;padding:12px 14px;margin:14px 0;font-size:14.5px;}
-  .note b{color:var(--clay);}
-  .tip{background:#f3f7ee;border:1px solid #d9e6cc;border-left:4px solid var(--moss);
-    border-radius:9px;padding:12px 14px;margin:14px 0;font-size:14.5px;}
-  ul{margin:.4em 0;padding-left:1.25em;}
-  li{margin:.3em 0;}
-  .small{font-size:13px;color:var(--soft);}
-  .pill{display:inline-block;font-size:12.5px;background:#eef3e8;border:1px solid #d9e6cc;color:var(--moss-deep);
-    border-radius:20px;padding:2px 10px;margin:2px 4px 2px 0;}
+:root{
+  --paper:#F6F1E3;
+  --card:#FFFDF7;
+  --ink:#26301F;
+  --forest:#2C5F2D;
+  --moss:#5A6B3E;
+  --clay:#B8694A;
+  --hairline:rgba(44,95,45,.22);
+  --serif:"Noto Serif TC",serif;
+  --sans:"Noto Sans TC",system-ui,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.7}
+a{color:var(--forest)}
+.wrap{max-width:820px;margin:0 auto;padding:20px 16px 72px}
+
+header.site{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  border-bottom:2px solid var(--forest);padding-bottom:12px;margin-bottom:24px;flex-wrap:wrap}
+.brand{font-family:var(--serif);font-weight:700;font-size:1.25rem}
+.brand small{display:block;font-family:var(--sans);font-weight:400;font-size:.78rem;color:var(--moss)}
+nav.site a{font-size:.85rem;margin-left:14px;text-decoration:none}
+nav.site a:hover{text-decoration:underline}
+
+h1{font-family:var(--serif);font-size:1.5rem;margin-bottom:4px}
+.lede{color:var(--moss);font-size:.9rem;margin-bottom:6px}
+
+h2{font-family:var(--serif);font-size:1.12rem;color:var(--forest);
+  margin:34px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--hairline)}
+h3{font-size:.98rem;color:var(--moss);margin:20px 0 6px;font-weight:700}
+p{margin:.6em 0}
+ul,ol{margin:.5em 0 .5em 1.3em}
+li{margin:.3em 0}
+strong,b{font-weight:700}
+
+.toc{background:var(--card);border:1px solid var(--hairline);border-radius:10px;padding:14px 18px;margin:22px 0 6px}
+.toc ol{margin:.2em 0 0 1.3em;font-size:.9rem}
+.toc a{text-decoration:none}
+.toc a:hover{text-decoration:underline}
+
+.panel{background:var(--card);border:1px solid var(--hairline);border-radius:10px;padding:16px 18px;margin:16px 0}
+.panel h3{margin-top:0}
+
+.stepgrid{counter-reset:s;margin:14px 0}
+.stepgrid .s{position:relative;background:var(--card);border:1px solid var(--hairline);border-left:3px solid var(--forest);
+  border-radius:8px;padding:12px 16px 12px 46px;margin:10px 0}
+.stepgrid .s::before{counter-increment:s;content:counter(s);position:absolute;left:12px;top:12px;
+  width:22px;height:22px;line-height:22px;text-align:center;border-radius:50%;
+  background:var(--forest);color:#fff;font-size:.78rem;font-weight:700}
+.stepgrid .s .t{font-family:var(--serif);font-weight:700;font-size:1rem;display:block;margin-bottom:2px}
+.stepgrid .s p{margin:.3em 0;font-size:.92rem}
+
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:.88rem;
+  background:var(--card);border:1px solid var(--hairline);border-radius:8px;overflow:hidden}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--hairline);vertical-align:top}
+th{background:rgba(44,95,45,.07);color:var(--forest);font-weight:700}
+tr:last-child td{border-bottom:none}
+
+code{font-family:var(--mono);font-size:.85em;background:rgba(44,95,45,.07);
+  border:1px solid var(--hairline);border-radius:4px;padding:1px 5px;color:var(--forest)}
+
+.note,.warn{border-radius:9px;padding:12px 15px;margin:14px 0;font-size:.9rem;background:var(--card);
+  border:1px solid var(--hairline)}
+.note{border-left:3px solid var(--moss)}
+.warn{border-left:3px solid var(--clay)}
+.warn b{color:var(--clay)}
+.small{font-size:.8rem;color:var(--moss)}
+.pill{display:inline-block;font-size:.76rem;background:rgba(44,95,45,.07);border:1px solid var(--hairline);
+  color:var(--forest);border-radius:20px;padding:2px 10px;margin:2px 4px 2px 0;font-weight:500}
+footer.doc{margin-top:40px;padding-top:14px;border-top:1px solid var(--hairline);font-size:.8rem;color:var(--moss)}
+
+/* 中英切換：預設顯示中文；I18N 未載入或出錯時，中文仍在 */
+body:not(.en) [data-lang="en"]{display:none}
+body.en [data-lang="zh"]{display:none}
+@media (max-width:560px){.stepgrid .s{padding-left:42px}}
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <h1>HEALS 場域研究 · 操作手冊</h1>
-  <p class="sub">遠端遙控 → 連續收集 → 自動回傳 → 心率路線圖。一份從頭到尾的操作流程。</p>
-  <div class="rule"></div>
+<header class="site">
+  <div class="brand"><span data-i18n="site.name">讀人 · 即時心理生理研究平台</span><small data-i18n="site.sub">HEALS Design · 場域生心理量測</small></div>
+  <nav class="site">
+    <a href="index.html" data-i18n="nav.back">← 專案列表</a>
+    <a href="live.html" data-i18n="nav.live">即時監看</a>
+    <span id="langSlot" style="margin-left:14px"></span>
+  </nav>
+</header>
 
-  <h2>一、系統由哪幾塊組成</h2>
-  <p>四個角色,各司其職:</p>
-  <ul>
-    <li><b>控制面板</b>（網頁）<code>psycho-physiology.healsdesign.org</code>　研究主持人按「開始／停止」下指令、看各專案狀態。</li>
-    <li><b>後端</b>（Netlify 函式 + Blobs）　記住每個專案的指令、收各裝置上傳的資料。看不到、不用管,自動運作。</li>
-    <li><b>HealthProbe</b>（iPhone App，搭配 Apple Watch）　受測者裝置：輪詢後端、自動開始記錄、把資料上傳。</li>
-    <li><b>資料主控台 console</b>（網頁）<code>…/console.html</code>　把後端的資料抓回來，出地圖與 Excel。</li>
-  </ul>
-  <p class="small">資料流：<b>面板按開始 → 後端記指令 → 手機輪詢到、自動清空＋開軌跡＋開基線 →（走測＋手錶運動）→ 面板按停止 → 手機上傳 → console 抓取出圖</b>。</p>
+<h1><span data-lang="zh">操作手冊</span><span data-lang="en">Manual</span></h1>
+<p class="lede">
+  <span data-lang="zh">研究者在網頁畫定反應區與問卷，受測者用手機自助走測；走進區內的那一刻，答案與生理、時間、空間被綁在一起。</span>
+  <span data-lang="en">Researchers define response zones and surveys on the web; participants run walks themselves on their phone. The moment they enter a zone, their answers are bound to their physiology, the time and the place.</span>
+</p>
 
-  <h2>二、一次性設定（每台裝置做一次就好）</h2>
-  <div class="step">
-    <span class="lab">目的</span>讓每台受測裝置認得後端、知道自己是哪一號。
-    <div class="row"><span class="lab do">操作</span>HealthProbe →「工具」→「遠端總開關」，填三格並保存：</div>
-    <table>
-      <tr><th>欄位</th><th>填什麼</th><th>說明</th></tr>
-      <tr><td>後端網址</td><td><code>https://psycho-physiology.healsdesign.org</code></td><td>所有裝置都一樣。結尾有沒有 <code>/</code> 都行。</td></tr>
-      <tr><td>專案名稱</td><td>例：<code>aa</code>、<code>大安森林A</code></td><td><b>必須和面板上那個專案一字不差</b>（含大小寫、空格）。</td></tr>
-      <tr><td>本機編號</td><td>例：<code>#1</code>、<code>#2</code></td><td>一組「Apple Watch ＋ iPhone」＝一個編號＝一位受測者。多人時各填各的。</td></tr>
-    </table>
+<div class="toc">
+  <ol>
+    <li><a href="#s1"><span data-lang="zh">系統由哪幾塊組成</span><span data-lang="en">What the system is made of</span></a></li>
+    <li><a href="#s2"><span data-lang="zh">研究者：開案四站</span><span data-lang="en">Researcher: the four stations</span></a></li>
+    <li><a href="#s3"><span data-lang="zh">受測者：一次走測</span><span data-lang="en">Participant: one walk</span></a></li>
+    <li><a href="#s4"><span data-lang="zh">走測中的即時監看</span><span data-lang="en">Live monitoring during a walk</span></a></li>
+    <li><a href="#s5"><span data-lang="zh">心率為什麼會晚到</span><span data-lang="en">Why heart rate arrives late</span></a></li>
+    <li><a href="#s6"><span data-lang="zh">資料主控台與匯出</span><span data-lang="en">The data console and exports</span></a></li>
+    <li><a href="#s7"><span data-lang="zh">分析結果怎麼讀</span><span data-lang="en">How to read the analysis</span></a></li>
+    <li><a href="#s8"><span data-lang="zh">常見狀況</span><span data-lang="en">Troubleshooting</span></a></li>
+    <li><a href="#s9"><span data-lang="zh">資料格式（給接手者）</span><span data-lang="en">Data formats (for maintainers)</span></a></li>
+  </ol>
+</div>
+
+<h2 id="s1"><span data-lang="zh">一、系統由哪幾塊組成</span><span data-lang="en">1 · What the system is made of</span></h2>
+
+<p data-lang="zh">三層，各司其職。研究者只碰網頁，受測者只碰手機，手錶全程不必設定。</p>
+<p data-lang="en">Three layers, each with its own job. Researchers only touch the web; participants only touch the phone; the watch needs no setup at all.</p>
+
+<table>
+  <tr>
+    <th><span data-lang="zh">層</span><span data-lang="en">Layer</span></th>
+    <th><span data-lang="zh">誰在用</span><span data-lang="en">Who uses it</span></th>
+    <th><span data-lang="zh">做什麼</span><span data-lang="en">What it does</span></th>
+  </tr>
+  <tr>
+    <td><span data-lang="zh">網頁後台</span><span data-lang="en">Web back office</span><br><code>psycho-physiology.healsdesign.org</code></td>
+    <td><span data-lang="zh">研究者</span><span data-lang="en">Researcher</span></td>
+    <td><span data-lang="zh">建立專案、畫反應區、設計問卷、看即時監看、匯出資料</span><span data-lang="en">Create projects, draw response zones, design surveys, watch live, export data</span></td>
+  </tr>
+  <tr>
+    <td><span data-lang="zh">HealthProbe</span><span data-lang="en">HealthProbe</span><br><span class="small">iPhone App</span></td>
+    <td><span data-lang="zh">受測者</span><span data-lang="en">Participant</span></td>
+    <td><span data-lang="zh">選專案、填入組問卷、自助開始與結束走測、進反應區作答、上傳</span><span data-lang="en">Pick the project, fill the intake survey once, start and end walks themselves, answer in-zone prompts, upload</span></td>
+  </tr>
+  <tr>
+    <td><span data-lang="zh">Apple Watch</span><span data-lang="en">Apple Watch</span></td>
+    <td><span data-lang="zh">受測者（戴著就好）</span><span data-lang="en">Participant (just wear it)</span></td>
+    <td><span data-lang="zh">心率來源，<b>全程零設定</b>，由手機操控</span><span data-lang="en">Source of heart rate. <b>No setup whatsoever</b>; the phone drives it</span></td>
+  </tr>
+</table>
+
+<h3><span data-lang="zh">核心設計：反應區與現場問卷</span><span data-lang="en">The core idea: zones and in-situ surveys</span></h3>
+<p data-lang="zh">研究者在地圖上畫定<b>反應區</b>。受測者走進去的那一刻，手機擷取當下的座標、心率與環境快照，並立即跳出<b>現場問卷</b>。若人走出區外而問卷還沒填完，那份作答<b>自動作廢</b>——這是刻意的：生態瞬時評估（EMA）的效度就建立在「答案確實來自那個當下、那個地點」，事後補填會毀掉它。</p>
+<p data-lang="en">The researcher draws <b>response zones</b> on a map. The moment a participant walks into one, the phone captures the current coordinates, heart rate and an environmental snapshot, and immediately presents the <b>in-situ survey</b>. If they leave the zone before finishing, that response is <b>discarded automatically</b>. This is deliberate: the validity of ecological momentary assessment rests on the answer genuinely coming from that moment and that place, and letting people fill it in afterwards would destroy it.</p>
+
+<h2 id="s2"><span data-lang="zh">二、研究者：開案四站</span><span data-lang="en">2 · Researcher: the four stations</span></h2>
+
+<p data-lang="zh">從<a href="index.html">專案列表</a>建立專案，點入後依序走過四站：<b>1 設定 → 2 範圍 → 3 問卷 → 4 資料</b>。四站是作業順序，不是選單——問卷與範圍沒設好，受測者端就沒有東西可跑。</p>
+<p data-lang="en">Create a project from the <a href="index.html">project list</a>, then work through four stations in order: <b>1 Settings → 2 Zones → 3 Survey → 4 Data</b>. They are a sequence, not a menu: until zones and surveys are set, there is nothing for the participant side to run.</p>
+
+<div class="warn">
+  <p data-lang="zh"><b>專案代號建立後不可更改。</b>它是所有資料歸檔與跨檔合併的欄位鍵。請用英數短碼（可含 <code>-</code> 與 <code>_</code>），例如 <code>park2026</code>。名稱與備註隨時可改，代號不行。</p>
+  <p data-lang="en"><b>The project code cannot be changed once created.</b> It is the key under which everything is filed and by which files are merged. Use a short alphanumeric code (<code>-</code> and <code>_</code> allowed), e.g. <code>park2026</code>. Name and note stay editable; the code does not.</p>
+</div>
+
+<div class="stepgrid">
+  <div class="s">
+    <span class="t"><span data-lang="zh">1 設定 · 名稱與狀態</span><span data-lang="en">1 Settings · name and status</span></span>
+    <p data-lang="zh">填名稱與備註。狀態分兩種：<b>進行中</b>＝手機端可以選到這個專案；<b>封存</b>＝手機端不再顯示。收案結束就改成封存，受測者才不會誤選。</p>
+    <p data-lang="en">Set the name and note. Two states: <b>Active</b> means the project is selectable on the phone; <b>Archived</b> means it no longer appears there. Archive a project when collection ends so participants cannot pick it by mistake.</p>
+    <p class="small" data-lang="zh">「自清單移除」只移除登記，讓專案不再出現在清單與手機端。已儲存的範圍、問卷與量測資料都留在後端，以相同代號重新建立即可復原。</p>
+    <p class="small" data-lang="en">“Remove from list” only removes the registration, so the project disappears from the list and from the phone. Saved zones, surveys and measurements stay on the backend; recreate the project with the same code to get them back.</p>
   </div>
-  <div class="tip"><b>多受測者：</b>每台手機填「同一個專案名 ＋ 自己的編號」，就會一起聽同一個開關，各自上傳到同一個專案底下。</div>
-
-  <h2>三、單場走測流程</h2>
-  <p class="small">分五個階段。每步都標了「目的」與「操作」。</p>
-
-  <div class="phase">
-    <div class="ptitle">階段 A · 開始前（在起點、室外開闊處）</div>
-
-    <div class="step"><span class="n">1</span><span class="t">打開控制面板、選好專案</span>
-      <div class="row"><span class="lab">目的</span>準備好要下指令的專案。</div>
-      <div class="row"><span class="lab do">操作</span>手機或電腦開面板 → 若沒有該專案，於「新增專案」輸入名稱後「加入」。</div>
-    </div>
-
-    <div class="step"><span class="n">2</span><span class="t">受測者手機：開好遠端總開關</span>
-      <div class="row"><span class="lab">目的</span>讓手機開始持續詢問後端「研究開始了沒」。</div>
-      <div class="row"><span class="lab do">操作</span>HealthProbe →「工具」→「遠端總開關」→ 確認三格設定無誤 → 打開「<b>自動輪詢（每 20 秒）</b>」。</div>
-    </div>
-
-    <div class="step"><span class="n">3</span><span class="t">Apple Watch：開始「戶外步行」運動</span>
-      <div class="row"><span class="lab">目的</span><b>關鍵步驟。</b>只有在運動進行中，手錶才會密集量心率（約每 5 秒一次）；平時背景量得很稀疏，畫不出沿路漸層。</div>
-      <div class="row"><span class="lab do">操作</span>手錶 → 體能訓練 →「戶外步行」→ 開始。</div>
-    </div>
-
-    <div class="step"><span class="n">4</span><span class="t">面板：對該專案按「開始」</span>
-      <div class="row"><span class="lab">目的</span>正式下達「研究開始」指令，後端會給這一場一個專屬場次號。</div>
-      <div class="row"><span class="lab do">操作</span>面板上找到專案 → 按綠色「開始」→ 狀態變「研究中」。</div>
-    </div>
-
-    <div class="step"><span class="n">5</span><span class="t">回手機確認已開始記錄</span>
-      <div class="row"><span class="lab">目的</span>確定手機真的收到指令、開始記錄。</div>
-      <div class="row"><span class="lab do">操作</span>切回 HealthProbe 的遠端總開關頁（讓它在前景）→ 20 秒內、或按「立即檢查一次」→ 應看到：</div>
-      <div class="row"><span class="chk">　• 專案狀態 →「研究中」（綠）</span></div>
-      <div class="row"><span class="chk">　• 本機動作 →「✅ 已開始本場記錄：清空軌跡＋開軌跡＋開基線」</span></div>
-      <div class="row"><span class="chk">　• 第一次會問定位權限 → 選「永遠允許」</span></div>
-      <div class="row"><span class="chk">　• 螢幕最上方出現藍色定位列（＝背景定位記錄中）</span></div>
-    </div>
+  <div class="s">
+    <span class="t"><span data-lang="zh">2 範圍 · 畫反應區</span><span data-lang="en">2 Zones · draw response zones</span></span>
+    <p data-lang="zh">按「新增區域」，在地圖上依序點出頂點（<b>至少 3 點</b>），按「完成多邊形」，最後按<b>「儲存反應區」</b>。可畫多個不規則區域，畫錯用「復原一點」或「取消」。</p>
+    <p data-lang="en">Click “Add zone”, tap the vertices on the map in order (<b>at least 3</b>), click “Close polygon”, and finally click <b>“Save zones”</b>. You can draw several irregular zones; use “Undo point” or “Cancel” to correct mistakes.</p>
+    <p class="small" data-lang="zh">受測者端<b>不需要任何設定</b>：手機選定專案後會自動取用這裡存的範圍。</p>
+    <p class="small" data-lang="en">The participant side needs <b>no configuration</b>: once the phone selects the project, it picks these zones up automatically.</p>
   </div>
-
-  <div class="phase b">
-    <div class="ptitle">階段 B · 走測</div>
-    <div class="step"><span class="n">6</span><span class="t">沿規劃路線走</span>
-      <div class="row"><span class="lab">目的</span>同時收集心率（手錶）、GPS 軌跡（手機）、環境（自動）。</div>
-      <div class="row"><span class="lab do">操作</span>可鎖屏，走 <b>5–10 分鐘、數百公尺</b>，盡量在<b>開闊天空下</b>（室內 GPS 會飄）。手錶運動全程別停。</div>
-    </div>
-  </div>
-
-  <div class="phase c">
-    <div class="ptitle">階段 C · 結束</div>
-    <div class="step"><span class="n">7</span><span class="t">面板：按「停止」</span>
-      <div class="row"><span class="lab">目的</span>結束這一場、記下停止時間。</div>
-      <div class="row"><span class="lab do">操作</span>面板對該專案按「停止」→ 狀態變「已停止」。</div>
-    </div>
-    <div class="step"><span class="n">8</span><span class="t">回手機確認已停止</span>
-      <div class="row"><span class="lab">目的</span>確定軌跡記錄已收。</div>
-      <div class="row"><span class="lab do">操作</span>HealthProbe 遠端總開關 → 按「立即檢查一次」→ 本機動作顯示「■ 已停止本場軌跡記錄」、藍色定位列消失。</div>
-    </div>
-    <div class="step"><span class="n">9</span><span class="t">Apple Watch：結束運動</span>
-      <div class="row"><span class="lab">目的</span>結束體能訓練、停止密集量測。</div>
-      <div class="row"><span class="lab do">操作</span>手錶上結束「戶外步行」。</div>
-    </div>
-  </div>
-
-  <div class="phase d">
-    <div class="ptitle">階段 D · 同步 ＋ 撈取（最關鍵、最容易漏）</div>
-    <div class="step"><span class="n">10</span><span class="t">讓手錶把心率同步到手機</span>
-      <div class="row"><span class="lab">目的</span>手錶的心率不是即時傳到手機的，要先同步過去，手機才撈得到。</div>
-      <div class="row"><span class="lab do">操作</span><b>把 Apple Watch 放上充電座</b>（最可靠、最快的同步觸發）→ 等 3–5 分鐘。<span class="small">不充電也會慢慢同步，只是較久且不固定；詳見下方說明。</span></div>
-    </div>
-    <div class="step"><span class="n">11</span><span class="t">App 撈取生理</span>
-      <div class="row"><span class="lab">目的</span>把同步好的心率，收進 App 的生理資料流。</div>
-      <div class="row"><span class="lab do">操作</span>HealthProbe → 撈取生理那頁 → 按「撈取」→ 看「本次新增」數字跳上來（這趟的心率到了）。沒跳就再等一下、再撈一次。</div>
-    </div>
-  </div>
-
-  <div class="phase e">
-    <div class="ptitle">階段 E · 上傳 ＋ 出圖</div>
-    <div class="step"><span class="n">12</span><span class="t">上傳本場資料</span>
-      <div class="row"><span class="lab">目的</span>把這一場的 生理＋軌跡＋環境 一次送到後端。</div>
-      <div class="row"><span class="lab do">操作</span>HealthProbe 遠端總開關 →「上傳本場資料」→ 顯示「✅ 已上傳本場：生理 N・軌跡 M・環境 K」。<span class="small">生理偏少？充電同步 → 撈取 → 再按一次上傳即可更新（後端同 key 覆蓋）。</span></div>
-    </div>
-    <div class="step"><span class="n">13</span><span class="t">console 抓取，出地圖與 Excel</span>
-      <div class="row"><span class="lab">目的</span>把後端資料抓回來，產生視覺化與報表。</div>
-      <div class="row"><span class="lab do">操作</span>開 <code>…/console.html</code> → 後端專案名填同一個（如 <code>aa</code>）→ 按「從後端抓取」→ 卡片列出每位（編號×場次）→ 地圖畫出路線 → 「產出專案 Excel」下載報表。</div>
-    </div>
-    <div class="step"><span class="n">14</span><span class="t">把地圖變成心率漸層</span>
-      <div class="row"><span class="lab">目的</span>看出路線上哪段心率較高／較低。</div>
-      <div class="row"><span class="lab do">操作</span>console 左側「地圖上色方式」切到「<b>依數值</b>」→ 指標選 <code>heart_rate</code> → 點會依心率冷→暖著色。也可調「時間容差」「GPS 精度上限」「資料點大小」。</div>
+  <div class="s">
+    <span class="t"><span data-lang="zh">3 問卷 · 兩份，觸發方式在此設定</span><span data-lang="en">3 Survey · two of them, plus the trigger</span></span>
+    <p data-lang="zh">每個專案有兩份問卷。<b>入組問卷</b>：受測者第一次使用時填一次（基本資料、email），可一鍵套用範本。<b>現場問卷（EMA）</b>：每次觸發都填，可上傳現成問卷（PDF／Word .docx／純文字）由 AI 解析成題目，也可套用五題範本。</p>
+    <p data-lang="en">Each project has two surveys. The <b>intake survey</b> is filled once, the first time a participant uses the app (background details, email); a template applies it in one click. The <b>in-situ survey (EMA)</b> is filled on every trigger; you can upload an existing questionnaire (PDF, Word .docx or plain text) for AI to parse into items, or apply a five-item template.</p>
+    <p data-lang="zh"><b>觸發方式</b>有三種：<b>範圍</b>（走進反應區）、<b>定時</b>（每 N 分鐘一次）、或<b>兩者</b>。量尺題的最小／最大值一次套用到全部量尺題。可勾選支援語言並指定預設語言，手機依系統語言顯示，答案落在同一欄位，跨國收案也能直接合併。</p>
+    <p data-lang="en"><b>Three trigger modes</b>: <b>Zone</b> (on entering a response zone), <b>Timed</b> (every N minutes), or <b>Both</b>. The scale minimum and maximum apply to every scale item at once. Tick the supported languages and pick a default; the phone shows the participant's system language, while answers land in the same columns, so multi-country collection merges directly.</p>
+    <div class="warn" style="margin:10px 0 0">
+      <p data-lang="zh"><b>AI 譯文是草稿。</b>標準化量表正式收案請以官方譯本覆核。掃描影像的 PDF 抽不出文字，要先 OCR；舊版 <code>.doc</code> 請先另存為 <code>.docx</code>。</p>
+      <p data-lang="en"><b>AI translations are drafts.</b> For standardized instruments in real collection, check them against the official translation. Scanned image PDFs contain no extractable text and need OCR first; save legacy <code>.doc</code> as <code>.docx</code>.</p>
     </div>
   </div>
-
-  <h2>四、為什麼要「充電同步」？</h2>
-  <div class="note">
-    <p>Apple Watch 量到的健康資料，是<b>有空才同步</b>到 iPhone，不是即時的。<b>放上充電座</b>時手錶會跑背景同步，所以最穩、最快。</p>
-    <p>不充電資料<b>還是會到</b>，只是慢且不固定（幾分鐘～幾十分鐘）。想加快但不充電：手錶戴著、手機放旁邊、兩台短暫亮屏，或打開 iPhone「健康」App——但都沒有充電穩。</p>
-    <p><b>正式研究實務：</b>別要求每位受測者走完馬上充電（不切實際）。改成等自然同步後再上傳；上傳<b>可重按覆蓋</b>，所以先上傳一次、之後資料陸續同步進來再按一次補齊即可。</p>
+  <div class="s">
+    <span class="t"><span data-lang="zh">4 資料 · 主控台</span><span data-lang="en">4 Data · the console</span></span>
+    <p data-lang="zh">走測資料進來後在這裡檢視、分析與匯出。詳見<a href="#s6">第六節</a>。</p>
+    <p data-lang="en">Once walk data arrives, review, analyse and export it here. See <a href="#s6">section 6</a>.</p>
   </div>
+</div>
 
-  <h2>五、欄位設定速查</h2>
-  <table>
-    <tr><th>地方</th><th>欄位</th><th>要點</th></tr>
-    <tr><td>HealthProbe 遠端總開關</td><td>後端網址</td><td>所有裝置相同：<code>https://psycho-physiology.healsdesign.org</code></td></tr>
-    <tr><td>HealthProbe 遠端總開關</td><td>專案名稱</td><td><b>與面板一致</b>（一字不差）</td></tr>
-    <tr><td>HealthProbe 遠端總開關</td><td>本機編號</td><td>每台不同，如 <code>#1</code>、<code>#2</code></td></tr>
-    <tr><td>控制面板</td><td>後端網址</td><td>掛在站上會自動帶；本機開則填上面那個網址</td></tr>
-    <tr><td>控制面板</td><td>專案</td><td>新增後按「開始／停止」</td></tr>
-    <tr><td>console</td><td>後端專案名</td><td>填要檢視的專案（與面板一致）</td></tr>
-  </table>
+<h2 id="s3"><span data-lang="zh">三、受測者：一次走測</span><span data-lang="en">3 · Participant: one walk</span></h2>
 
-  <h2>六、常見狀況</h2>
-  <table>
-    <tr><th>狀況</th><th>原因 / 處理</th></tr>
-    <tr><td>上傳後生理筆數很少</td><td>手錶還沒同步完。充電同步 → 撈取 → 再按一次「上傳本場資料」（覆蓋更新）。</td></tr>
-    <tr><td>console 地圖沒畫出來</td><td>該位需<b>同時有「生理」與「軌跡」</b>才畫得出沿路心率。只有環境或只有軌跡不會畫。</td></tr>
-    <tr><td>「立即檢查一次」按了沒變化</td><td>狀態本來就是當前值（如已是「研究中」），屬正常。自動輪詢每 20 秒會自己更新。</td></tr>
-    <tr><td>抓回來是舊資料</td><td>console 已設不讀快取；若仍懷疑，網址列開 <code>…/api/data?project=你的專案&t=任意數</code> 看後端原始內容。</td></tr>
-    <tr><td>心率稀疏、路線著色很空</td><td>走測時忘了開 Apple Watch「戶外步行」運動。下次務必先開運動。</td></tr>
-    <tr><td>定位「永遠允許」沒設到</td><td>設定 → HealthProbe → 位置 → 改成「永遠」（背景記錄需要）。</td></tr>
-  </table>
+<p data-lang="zh">受測者自己操作手機，研究者不必在場遙控。流程如下。</p>
+<p data-lang="en">Participants operate their own phone; no researcher needs to be present to drive it. The flow is as follows.</p>
 
-  <h2>七、資料格式（給接手者參考）</h2>
-  <p class="small">三條流以 ISO8601 時間編碼；console／對接工具皆認得這套 schema。</p>
-  <p><span class="pill">生理 physiology</span> <code>{ hkUUID, metricType, time, value, unit, sourceDevice }</code></p>
-  <p class="small">metricType：heart_rate、resting_heart_rate、respiratory_rate、hrv_sdnn、vo2max、wrist_temp、spo2、audio_exposure_db</p>
-  <p><span class="pill">軌跡 location</span> <code>{ id, time, lat, lng, accuracyM }</code></p>
-  <p><span class="pill">環境 environment</span> <code>{ id, time, snapshot{ airTempC, apparentTempC, humidityPct, usAqi, pm25, pm10, no2, ozone, windSpeedMs, weatherDesc, latitude, longitude, … } }</code></p>
-  <p class="small">後端每個場次存成一筆：<code>{ project, code, session, uploadedAt, counts, physiology[], location[], environment[] }</code>。</p>
+<div class="stepgrid">
+  <div class="s">
+    <span class="t"><span data-lang="zh">在手機上選定專案</span><span data-lang="en">Select the project on the phone</span></span>
+    <p data-lang="zh">HealthProbe 會列出<b>進行中</b>的專案。選定後，該專案的反應區與問卷自動下載，不需手動填任何網址或編號。</p>
+    <p data-lang="en">HealthProbe lists the <b>active</b> projects. Once one is selected, its zones and surveys download automatically — no URLs or codes to type in.</p>
+  </div>
+  <div class="s">
+    <span class="t"><span data-lang="zh">填一次入組問卷</span><span data-lang="en">Fill the intake survey once</span></span>
+    <p data-lang="zh">第一次使用該專案時填，含 email。之後同一專案不再重複問。</p>
+    <p data-lang="en">Filled the first time they use that project, including their email. It is not asked again for the same project.</p>
+  </div>
+  <div class="s">
+    <span class="t"><span data-lang="zh">開始走測</span><span data-lang="en">Start the walk</span></span>
+    <p data-lang="zh">手機開始記錄軌跡、環境與心率。<b>手錶戴著就好</b>，不必自己開體能訓練，也不必做任何設定——心率由手機統一操控。第一次會要求定位權限，請選<b>「永遠允許」</b>，背景記錄需要它。</p>
+    <p data-lang="en">The phone starts recording the track, the environment and heart rate. <b>Just wear the watch</b> — there is no workout to start and nothing to configure; the phone drives heart-rate collection. Location permission is requested the first time: choose <b>“Always Allow”</b>, which background recording requires.</p>
+  </div>
+  <div class="s">
+    <span class="t"><span data-lang="zh">走進反應區 → 當場作答</span><span data-lang="en">Enter a zone → answer on the spot</span></span>
+    <p data-lang="zh">走進區內時問卷會自己跳出來，<b>當場填完</b>。走出區外而還沒填完的會自動作廢，這是設計如此，不是錯誤。若觸發方式設為定時，則每隔設定的分鐘數也會跳一次。</p>
+    <p data-lang="en">The survey appears by itself on entering a zone; <b>finish it on the spot</b>. Leaving the zone unfinished discards that response — by design, not a fault. If the trigger is set to timed, it also appears at the configured interval.</p>
+  </div>
+  <div class="s">
+    <span class="t"><span data-lang="zh">結束走測並上傳</span><span data-lang="en">End the walk and upload</span></span>
+    <p data-lang="zh">走完就結束本場，資料整包送到後端。心率若還沒同步完，先上傳一次即可，之後再上傳一次補齊（見<a href="#s5">第五節</a>）。</p>
+    <p data-lang="en">End the session when the walk is done and the whole bundle goes to the backend. If heart rate has not finished syncing, upload once now and upload again later to fill it in (see <a href="#s5">section 5</a>).</p>
+  </div>
+</div>
 
-  <div class="rule" style="margin-top:34px"></div>
-  <p class="small" style="text-align:center;margin-top:10px">HEALS Design · 場域研究操作手冊　|　一場走測：開始 → 走（手錶開運動）→ 停止 → 充電同步 → 撈取 → 上傳 → 抓取出圖</p>
+<div class="note">
+  <p data-lang="zh"><b>忘記按結束的防護。</b>App 在走測滿 <b>3 小時</b>會提醒，滿 <b>6 小時</b>自動結束並上傳。即使如此，仍請養成走完就結束的習慣——超過 12 小時的場次混雜了睡眠與通勤，主控台會標橘色警告且不建議分析。</p>
+  <p data-lang="en"><b>Protection against forgetting to stop.</b> The app reminds you at <b>3 hours</b> and automatically ends and uploads at <b>6 hours</b>. Even so, make ending the session a habit: a session longer than 12 hours mixes in sleep and commuting, and the console flags it orange and advises against analysing it.</p>
+</div>
+
+<h2 id="s4"><span data-lang="zh">四、走測中的即時監看</span><span data-lang="en">4 · Live monitoring during a walk</span></h2>
+
+<p data-lang="zh"><a href="live.html">即時監看</a>把走測中的裝置畫在地圖上。走測中的手機<b>每半分鐘</b>回報一次位置與最近心率；<b>超過三分鐘</b>沒回報就視為離線、不再顯示。可以只看單一專案，也可以看全部專案。</p>
+<p data-lang="en">The <a href="live.html">live monitor</a> plots active devices on a map. A phone on a walk reports its position and latest heart rate <b>every 30 seconds</b>; if nothing arrives for <b>over three minutes</b> it is treated as offline and hidden. You can scope the view to one project or watch them all.</p>
+
+<div class="warn">
+  <p data-lang="zh"><b>監看畫面的心率不是即時值。</b>心率來自 Apple Watch 經 HealthKit 遞送，可能落後實際<b>數十秒到數分鐘</b>。它適合用來確認「這台裝置還在收、人在這條路上」，不適合用來做即時生理判斷。</p>
+  <p data-lang="en"><b>The heart rate on this screen is not live.</b> It reaches the phone from the Apple Watch via HealthKit and can lag reality by <b>tens of seconds to several minutes</b>. Use it to confirm that a device is still collecting and where the person is — not to make real-time physiological judgements.</p>
+</div>
+
+<h2 id="s5"><span data-lang="zh">五、心率為什麼會晚到</span><span data-lang="en">5 · Why heart rate arrives late</span></h2>
+
+<p data-lang="zh">Apple Watch 量到的健康資料，是<b>有空才同步</b>到 iPhone，不是即時的。放上充電座時手錶會跑背景同步，所以最穩、最快。不充電資料<b>還是會到</b>，只是慢且不固定，可能幾分鐘也可能幾十分鐘。</p>
+<p data-lang="en">Health data measured by the Apple Watch syncs to the iPhone <b>when it gets the chance</b>, not in real time. Putting the watch on its charger triggers a background sync, which is the fastest and most reliable route. Without charging the data <b>still arrives</b>, just slowly and unpredictably — minutes, sometimes tens of minutes.</p>
+
+<div class="note">
+  <p data-lang="zh"><b>正式收案的實務做法：</b>不要求受測者走完馬上充電，那不切實際。改成走完先上傳一次，等資料陸續同步進來之後再上傳一次。<b>同一場次重複上傳會覆蓋更新</b>，不會產生重複場次，所以補齊很安全。研究者在主控台看到某場次心率筆數偏少時，請受測者再上傳一次即可。</p>
+  <p data-lang="en"><b>In practice, for real collection:</b> do not ask participants to charge the watch the moment they finish — that is unrealistic. Have them upload once when the walk ends, then upload again after the data has had time to sync. <b>Re-uploading the same session overwrites it</b> rather than creating a duplicate, so filling in gaps is safe. When the console shows few physiology records for a session, just ask the participant to upload again.</p>
+</div>
+
+<h2 id="s6"><span data-lang="zh">六、資料主控台與匯出</span><span data-lang="en">6 · The data console and exports</span></h2>
+
+<p data-lang="zh">主控台開頁就自動抓回本專案所有已上傳場次，依時間把心率與軌跡<b>對接</b>成帶 GPS 的資料點，全員疊在同一張地圖上。每位參與者是一張卡片（<b>編號 × 場次</b>）。</p>
+<p data-lang="en">The console automatically pulls back every uploaded session for the project, <b>joins</b> heart rate to the track by time into GPS-bearing points, and overlays all participants on one map. Each participant appears as a card (<b>code × session</b>).</p>
+
+<table>
+  <tr>
+    <th><span data-lang="zh">控制項</span><span data-lang="en">Control</span></th>
+    <th><span data-lang="zh">作用</span><span data-lang="en">What it does</span></th>
+  </tr>
+  <tr>
+    <td><span data-lang="zh">地圖上色方式</span><span data-lang="en">Map colouring</span></td>
+    <td><span data-lang="zh"><b>依編號</b>＝每位一色，看誰走了哪裡；<b>依數值</b>＝選一個指標（如心率）依冷暖著色，看沿路高低。</span><span data-lang="en"><b>By code</b> gives each participant a colour, showing who walked where. <b>By value</b> colours points cool-to-warm by a chosen metric (e.g. heart rate), showing where it ran high or low.</span></td>
+  </tr>
+  <tr>
+    <td><span data-lang="zh">時間容差</span><span data-lang="en">Time tolerance</span><br><span class="small">90 s</span></td>
+    <td><span data-lang="zh">心率與軌跡各自取樣的時刻不同，兩者時間差在容差內才配成同一點。放寬會得到較多點但配對較鬆。</span><span data-lang="en">Heart rate and track are sampled at different instants; the two are paired into one point only if they fall within this tolerance. Loosening it yields more points but looser matches.</span></td>
+  </tr>
+  <tr>
+    <td><span data-lang="zh">GPS 精度上限</span><span data-lang="en">GPS accuracy limit</span><br><span class="small">50 m</span></td>
+    <td><span data-lang="zh">精度差於此值的軌跡點不採用。室內與高樓間 GPS 會飄，這道門檔掉不可信的位置。</span><span data-lang="en">Track points less accurate than this are dropped. GPS drifts indoors and between tall buildings; this threshold discards untrustworthy positions.</span></td>
+  </tr>
+  <tr>
+    <td><span data-lang="zh">資料點大小</span><span data-lang="en">Point size</span></td>
+    <td><span data-lang="zh">純顯示用，不影響計算。</span><span data-lang="en">Display only; it does not affect any computation.</span></td>
+  </tr>
+</table>
+
+<h3><span data-lang="zh">匯出與封存</span><span data-lang="en">Export and archiving</span></h3>
+<p data-lang="zh"><b>產出專案 Excel</b>：每人一分頁。<b>存到 Google Drive</b>：也可手動觸發，但場次上傳後系統本來就會<b>每 5 分鐘</b>自動封存一次，按專案代號與場次分資料夾。</p>
+<p data-lang="en"><b>Export project Excel</b>: one sheet per participant. <b>Save to Google Drive</b>: available manually, though sessions are archived automatically <b>every 5 minutes</b> anyway, foldered by project code and session.</p>
+
+<div class="note">
+  <p data-lang="zh"><b>Excel 的欄位名固定中英並陳</b>（例如 <code>氣溫 AirTemp (°C)</code>），<b>不隨介面語言改變</b>。這是刻意的：跨檔、跨國合併時，欄位鍵必須唯一，不能因為匯出時介面是英文就變成另一個名字。</p>
+  <p data-lang="en"><b>Excel column names are always bilingual</b> (e.g. <code>氣溫 AirTemp (°C)</code>) and <b>do not follow the interface language</b>. This is deliberate: when merging files across sessions and countries the column key must be unique, and must not change just because the interface happened to be in English at export time.</p>
+</div>
+
+<p class="small" data-lang="zh">主控台另有「進階：本機離線模式」，展開後可把 HealthProbe 匯出的 JSON 直接拖入卡片，資料只在本機處理。那是後端抓不到時的備援，正常流程不需要用到。</p>
+<p class="small" data-lang="en">The console also has an “Advanced: local offline mode”. Expanding it lets you drag HealthProbe's exported JSON straight onto a card, processed entirely in the browser. It is a fallback for when the backend cannot be reached, not part of the normal flow.</p>
+
+<h2 id="s7"><span data-lang="zh">七、分析結果怎麼讀</span><span data-lang="en">7 · How to read the analysis</span></h2>
+
+<p data-lang="zh">主控台的脈絡分析與點層級分析不是普通圖表，背後有一串刻意的方法決定。不理解它們，很容易把假相關當成發現。</p>
+<p data-lang="en">The context and point-level analyses in the console are not ordinary charts; a series of deliberate methodological decisions sits behind them. Without understanding those, it is easy to mistake a spurious correlation for a finding.</p>
+
+<h3><span data-lang="zh">分析在單一場次之內進行</span><span data-lang="en">Analysis stays within a single session</span></h3>
+<p data-lang="zh">跨場次把資料點混在一起，會把場次之間的差異偷渡回來，可能產生辛普森悖論——各場次內部的關係明明一致，混起來卻反向。<b>場次是分層，不是分析單位。</b>跨場次的環境效果應以<b>配對設計</b>檢驗：同一條路線、相近時段、不同天氣各走數次，比較配對差值。</p>
+<p data-lang="en">Pooling points across sessions smuggles between-session differences back in and can produce Simpson's paradox: the relationship is consistent within every session yet reverses when they are combined. <b>Sessions are a stratum, not the unit of analysis.</b> Test environmental effects across sessions with a <b>paired design</b> instead: walk the same route at comparable times of day under different weather several times, and compare the paired differences.</p>
+
+<h3><span data-lang="zh">必須控制速度與晝夜</span><span data-lang="en">Speed and time of day must be controlled</span></h3>
+<p data-lang="zh">活動強度是心率最主要的決定因子，不先控掉它，天氣的效果無從談起。而時刻是<b>環形變數</b>：23 時與 1 時相鄰，用線性的「小時」控制不掉晝夜節律，必須拆成 <code>sin</code>／<code>cos</code> 兩個分量，以多元迴歸殘差化處理。</p>
+<p data-lang="en">Activity intensity is the dominant determinant of heart rate; until it is controlled there is no point discussing weather. Time of day is a <b>circular variable</b>: 23:00 and 01:00 are adjacent, so a linear “hour” term cannot remove the diurnal rhythm. It must be decomposed into <code>sin</code> and <code>cos</code> components and residualized by multiple regression.</p>
+<div class="warn">
+  <p data-lang="zh"><b>這不是理論顧慮。</b>實測某筆跨日資料，氣溫與心率的相關 <code>r=0.88</code>；只控速度剩 <code>0.87</code>，再加線性小時剩 <code>0.86</code>，改成環形分量後<b>掉到 <code>0.02</code></b>。那個 0.88 完全是晝夜節律假裝出來的。</p>
+  <p data-lang="en"><b>This is not a theoretical worry.</b> In one real multi-day dataset, air temperature correlated with heart rate at <code>r=0.88</code>. Controlling speed left <code>0.87</code>; adding a linear hour term left <code>0.86</code>; switching to circular components <b>dropped it to <code>0.02</code></b>. That 0.88 was the diurnal rhythm in disguise.</p>
+</div>
+
+<h3><span data-lang="zh">自相關分三級處理</span><span data-lang="en">Autocorrelation is handled at three levels</span></h3>
+<p data-lang="zh">取樣間隔並不均勻（運動中約 5 秒一筆，靜止時稀疏），所以不能用「相鄰兩筆」定義自相關，而是用實際時間戳估出去相關時間 τ。三級結果並列呈現：</p>
+<p data-lang="en">Sampling is not evenly spaced (roughly every 5 seconds while moving, sparse while still), so autocorrelation cannot be defined on “adjacent records”. The decorrelation time τ is estimated from the actual timestamps instead, and three levels are reported side by side:</p>
+<ol>
+  <li><span data-lang="zh">只報 <code>r</code>（效果量）。永遠成立，不受自相關影響。</span><span data-lang="en">Report <code>r</code> alone (effect size). Always valid, unaffected by autocorrelation.</span></li>
+  <li><span data-lang="zh">以 <code>n_eff = 總時長 ÷ 2τ</code> 當有效樣本數，據此算 <code>p</code>。</span><span data-lang="en">Take <code>n_eff = total duration ÷ 2τ</code> as the effective sample size and compute <code>p</code> from it.</span></li>
+  <li><span data-lang="zh">切成長於 <code>2τ</code> 的區塊，各自求 <code>r</code>，以區塊間的變異給 95% 信賴區間。</span><span data-lang="en">Cut the series into blocks longer than <code>2τ</code>, compute <code>r</code> in each, and derive a 95% CI from the between-block variation.</span></li>
+</ol>
+<p data-lang="zh"><b>三者以區塊結果最值得採信。</b>兩個 <code>p</code> 值不一致時，以區塊為準。</p>
+<p data-lang="en"><b>Of the three, trust the block result most.</b> When the two p-values disagree, go with the blocks.</p>
+
+<h3><span data-lang="zh">移動模式與時間加權</span><span data-lang="en">Movement mode and time weighting</span></h3>
+<p data-lang="zh">步行、騎行、車輛、靜止、室內的心率—速度關係截然不同，所以分析要分層。<b>目前的模式判別是推定值</b>，依速度、心率抬升與 GPS 精度推算；App 已加入 CoreMotion 實測，等實測資料回來就改用實測值。</p>
+<p data-lang="en">The heart-rate/speed relationship differs sharply between walking, cycling, vehicle travel, standing still and being indoors, so the analysis stratifies by mode. <b>Mode is currently inferred</b> from speed, heart-rate elevation and GPS accuracy; the app now records CoreMotion's measured activity type, and the console will switch to the measured value once such data comes back.</p>
+<p data-lang="zh">模式分布一律<b>以時間加權</b>呈現，不是點數。實測一筆騎行 30 分鐘、靜止 10 小時的資料：<b>點數上騎行佔 85%，時間上只佔 9%</b>。按點數看會嚴重高估密集取樣的那段。</p>
+<p data-lang="en">Mode distribution is always shown <b>weighted by time</b>, never by point count. In one real dataset with 30 minutes of cycling and 10 hours of being still, cycling was <b>85% of the points but only 9% of the time</b>. Counting points badly overstates whichever stretch was sampled densely.</p>
+
+<div class="warn">
+  <p data-lang="zh"><b>超過 12 小時的場次不可分析</b>，主控台會顯示橘色警告。那通常是走測沒按結束、App 繼續記錄，資料裡混了睡眠與通勤，任何相關都不具意義。</p>
+  <p data-lang="en"><b>Sessions longer than 12 hours must not be analysed</b>; the console shows an orange warning. They usually mean the walk was never ended and the app kept recording, so sleep and commuting are mixed in and no correlation means anything.</p>
+</div>
+
+<h2 id="s8"><span data-lang="zh">八、常見狀況</span><span data-lang="en">8 · Troubleshooting</span></h2>
+
+<table>
+  <tr>
+    <th><span data-lang="zh">狀況</span><span data-lang="en">Symptom</span></th>
+    <th><span data-lang="zh">原因與處理</span><span data-lang="en">Cause and fix</span></th>
+  </tr>
+  <tr>
+    <td><span data-lang="zh">某場次心率筆數很少</span><span data-lang="en">Few physiology records in a session</span></td>
+    <td><span data-lang="zh">手錶還沒把資料同步給手機。請受測者稍後<b>再上傳一次</b>，同場次會覆蓋更新。放上充電座可加快同步。</span><span data-lang="en">The watch has not synced to the phone yet. Ask the participant to <b>upload again</b> later; the same session is overwritten. Putting the watch on the charger speeds the sync up.</span></td>
+  </tr>
+  <tr>
+    <td><span data-lang="zh">地圖畫不出沿路心率</span><span data-lang="en">No heart-rate colouring along the route</span></td>
+    <td><span data-lang="zh">要<b>同時有心率與軌跡</b>才對接得出帶 GPS 的點。只有環境或只有軌跡不會畫。也請確認時間容差沒設得太緊、GPS 精度上限沒把點全濾掉。</span><span data-lang="en">Points need <b>both heart rate and track</b> to be joined. Environment alone, or track alone, draws nothing. Also check the time tolerance is not too tight and the GPS accuracy limit is not filtering everything out.</span></td>
+  </tr>
+  <tr>
+    <td><span data-lang="zh">手機選不到專案</span><span data-lang="en">The project is not selectable on the phone</span></td>
+    <td><span data-lang="zh">專案狀態是<b>封存</b>，或還沒建立。到 1 設定站改成「進行中」。</span><span data-lang="en">Its status is <b>Archived</b>, or it was never created. Set it to Active at station 1.</span></td>
+  </tr>
+  <tr>
+    <td><span data-lang="zh">走進區內沒跳問卷</span><span data-lang="en">No survey appears inside a zone</span></td>
+    <td><span data-lang="zh">確認反應區有<b>按過「儲存反應區」</b>、現場問卷有題目且已儲存、觸發方式含「範圍」。另外定位權限要是<b>「永遠允許」</b>。</span><span data-lang="en">Check that the zones were actually <b>saved</b>, that the in-situ survey has items and was saved, and that the trigger includes “Zone”. Location permission must also be <b>“Always Allow”</b>.</span></td>
+  </tr>
+  <tr>
+    <td><span data-lang="zh">問卷填一半不見了</span><span data-lang="en">A half-finished survey vanished</span></td>
+    <td><span data-lang="zh">人走出反應區了。這是<b>刻意設計</b>的作廢機制，用來維持 EMA 的效度，不是故障。</span><span data-lang="en">The participant left the zone. Discarding it is <b>by design</b>, to preserve the validity of EMA — not a malfunction.</span></td>
+  </tr>
+  <tr>
+    <td><span data-lang="zh">即時監看看不到裝置</span><span data-lang="en">A device is missing from the live monitor</span></td>
+    <td><span data-lang="zh">超過三分鐘沒回報就視為離線。可能走測已結束、手機沒網路，或不在這個專案底下。</span><span data-lang="en">Anything silent for over three minutes counts as offline. The walk may have ended, the phone may have no network, or the device may be under a different project.</span></td>
+  </tr>
+  <tr>
+    <td><span data-lang="zh">場次時長超過 12 小時</span><span data-lang="en">A session is longer than 12 hours</span></td>
+    <td><span data-lang="zh">忘了按結束。該場次不可分析，見<a href="#s7">第七節</a>。App 在 3 小時會提醒、6 小時自動結束。</span><span data-lang="en">The walk was never ended. That session cannot be analysed — see <a href="#s7">section 7</a>. The app reminds at 3 hours and auto-ends at 6.</span></td>
+  </tr>
+  <tr>
+    <td><span data-lang="zh">懷疑抓到舊資料</span><span data-lang="en">Suspecting stale data</span></td>
+    <td><span data-lang="zh">主控台已設不讀快取。若仍懷疑，直接開 <code>/api/data?project=你的專案代號</code> 看後端原始內容。</span><span data-lang="en">The console already requests no-cache. If still in doubt, open <code>/api/data?project=YOUR_CODE</code> to inspect the raw backend content.</span></td>
+  </tr>
+</table>
+
+<h2 id="s9"><span data-lang="zh">九、資料格式（給接手者）</span><span data-lang="en">9 · Data formats (for maintainers)</span></h2>
+
+<p data-lang="zh">一個場次在後端是<b>一筆</b>記錄，key 為 <code>專案代號/編號/場次</code>。六條流包在同一筆裡：</p>
+<p data-lang="en">A session is <b>one</b> record on the backend, keyed <code>project/code/session</code>. All six streams live inside it:</p>
+
+<p>
+  <span class="pill">physiology</span><span class="pill">location</span><span class="pill">environment</span>
+  <span class="pill">ema</span><span class="pill">activity</span><span class="pill">altitude</span>
+</p>
+
+<p><code>{ project, code, session, uploadedAt, final, counts, physiology[], location[], environment[], ema[], activity[], altitude[], intake }</code></p>
+
+<p class="small" data-lang="zh">後三條流（<code>ema</code>／<code>activity</code>／<code>altitude</code>）向下相容：舊版 App 未送時為空陣列、計數為 0，上傳不會失敗。<code>final:false</code> 代表走測中的定期備份，Drive 封存要等定稿。</p>
+<p class="small" data-lang="en">The last three streams (<code>ema</code>, <code>activity</code>, <code>altitude</code>) are backward compatible: when an older app does not send them they are empty arrays with a count of 0, and the upload still succeeds. <code>final:false</code> marks a periodic backup taken mid-walk; Drive archiving waits for the final version.</p>
+
+<table>
+  <tr>
+    <th><span data-lang="zh">流</span><span data-lang="en">Stream</span></th>
+    <th><span data-lang="zh">主控台讀取的欄位</span><span data-lang="en">Fields the console reads</span></th>
+  </tr>
+  <tr>
+    <td><code>physiology</code></td>
+    <td><code>{ metricType, time, value, unit, sourceDevice }</code><br><span class="small" data-lang="zh">metricType 如 <code>heart_rate</code>、<code>spo2</code> 等</span><span class="small" data-lang="en">metricType e.g. <code>heart_rate</code>, <code>spo2</code></span></td>
+  </tr>
+  <tr>
+    <td><code>location</code></td>
+    <td><code>{ time, lat, lng, accuracyM }</code><br><span class="small" data-lang="zh"><code>lon</code> 亦可。App 另送 <code>speedMps</code>／<code>courseDeg</code>／<code>altitudeM</code> 等 CoreLocation 原生值，主控台目前尚未讀用。</span><span class="small" data-lang="en"><code>lon</code> is also accepted. The app additionally sends CoreLocation native values such as <code>speedMps</code>, <code>courseDeg</code> and <code>altitudeM</code>, which the console does not yet consume.</span></td>
+  </tr>
+  <tr>
+    <td><code>environment</code></td>
+    <td><code>{ time, snapshot{ airTempC, apparentTempC, humidityPct, usAqi, pm25, pm10, windSpeedMs, weatherDesc, … } }</code></td>
+  </tr>
+</table>
+
+<p data-lang="zh">Drive 封存的檔名（空流略過）：<code>問卷.json</code>、<code>生理.json</code>、<code>軌跡.json</code>、<code>環境.json</code>、<code>活動類型.json</code>、<code>高度.json</code>。同名檔補傳時原地更新，不會產生重複。</p>
+<p data-lang="en">File names written to Drive (empty streams are skipped): <code>問卷.json</code>, <code>生理.json</code>, <code>軌跡.json</code>, <code>環境.json</code>, <code>活動類型.json</code>, <code>高度.json</code>. On re-upload, existing files are updated in place rather than duplicated.</p>
+
+<footer class="doc">
+  <span data-lang="zh">讀人 · 即時心理生理研究平台　|　台大園藝暨景觀學系 · Lab204 健康景觀研究室</span>
+  <span data-lang="en">Reading People · Real-Time Psychophysiology Platform　|　Dept. of Horticulture &amp; Landscape Architecture, NTU · Lab204 Healthy Landscape Research Lab</span>
+</footer>
 
 </div>
+
+<script src="i18n.js"></script>
+<script>
+"use strict";
+/* 本頁的中英切換：內文兩語都寫在 HTML 裡，靠 body 的 .en 類別擇一顯示。
+   長篇內文不進 i18n.js 的共用字典——那份字典每頁都同步載入，
+   只有本頁用到的手冊全文放進去，會讓全站每次載入都多背這些字。
+   I18N 只用來讀目前語言；未載入或出錯時預設中文，內容仍完整可讀。 */
+var TITLES = {
+  zh: "操作手冊 — 讀人 · 即時心理生理研究平台",
+  en: "Manual — Reading People · Real-Time Psychophysiology Platform",
+};
+function applyGuideLang(){
+  var l = "zh";
+  try{ if(window.I18N && window.I18N.lang) l = window.I18N.lang; }catch(e){}
+  l = (l === "en") ? "en" : "zh";
+  document.documentElement.setAttribute("lang", l === "en" ? "en" : "zh-Hant");
+  document.body.classList.toggle("en", l === "en");
+  document.title = TITLES[l];
+}
+/* I18N 只在切換語言時回呼 onLangChange，首次載入不會觸發，故載入時自己漆一次 */
+window.onLangChange = applyGuideLang;
+applyGuideLang();
+</script>
 </body>
 </html>

@@ -1,7 +1,10 @@
 // netlify/functions/data.mjs
 // HEALS 場域研究 — L3.3 資料端點（v2）
-// v2 重點：一個「場次」只寫一筆 blob（三條流包在一起），避免連續寫多筆時
+// v2 重點：一個「場次」只寫一筆 blob（各條流包在一起），避免連續寫多筆時
 //          Netlify Blobs 的 list 只認到最後一筆、前面被漏掉的問題。
+// 六條流：生理 physiology／軌跡 location／環境 environment／現場問卷 ema／
+//          活動類型 activity／高度 altitude。
+//          後三者舊版 App 未送 → 一律空陣列、計數為 0，不使舊裝置上傳失敗。
 // 儲存：Netlify Blobs（store: "heals-data"，key = 專案/編號/場次）。
 import { getStore } from "@netlify/blobs";
 
@@ -30,7 +33,8 @@ export default async (req) => {
   const url = new URL(req.url);
 
   // POST /api/data
-  // body: { project, code, session, physiology:[...], location:[...], environment:[...] }
+  // body: { project, code, session, physiology:[...], location:[...], environment:[...],
+  //         ema:[...], activity:[...], altitude:[...] }
   if (req.method === "POST") {
     let body;
     try { body = await req.json(); } catch { return reply({ error: "invalid json" }, 400); }
@@ -44,6 +48,8 @@ export default async (req) => {
     const location    = Array.isArray(body.location)    ? body.location    : [];
     const environment = Array.isArray(body.environment) ? body.environment : [];
     const ema         = Array.isArray(body.ema)         ? body.ema         : [];   // 現場問卷作答（舊版 App 未送 → 空陣列）
+    const activity    = Array.isArray(body.activity)    ? body.activity    : [];   // CoreMotion 實測活動類型（同上）
+    const altitude    = Array.isArray(body.altitude)    ? body.altitude    : [];   // 氣壓計相對高度（同上）
 
     const key = `${project}/${code}/${session}`;
     const intake = (body.intake && typeof body.intake === "object") ? body.intake : null;
@@ -51,8 +57,12 @@ export default async (req) => {
     const record = {
       project, code: codeRaw, session: sessionRaw, uploadedAt: Date.now(),
       final: isFinal,
-      counts: { physiology: physiology.length, location: location.length, environment: environment.length, ema: ema.length },
-      physiology, location, environment, ema,
+      counts: {
+        physiology: physiology.length, location: location.length,
+        environment: environment.length, ema: ema.length,
+        activity: activity.length, altitude: altitude.length,
+      },
+      physiology, location, environment, ema, activity, altitude,
       intake,                                    // 受測者入組基本資料（可能為 null）
     };
     await store.setJSON(key, record);   // 單一寫入
@@ -68,7 +78,7 @@ export default async (req) => {
     return reply({ ok: true, key, counts: record.counts });
   }
 
-  // GET /api/data?project=X  → 該專案所有場次（每筆含三條流與 counts）
+  // GET /api/data?project=X  → 該專案所有場次（每筆含六條流與 counts）
   if (req.method === "GET") {
     const project = seg(url.searchParams.get("project"), "");
     if (!project) return reply({ error: "project required" }, 400);

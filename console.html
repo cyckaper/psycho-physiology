@@ -1433,16 +1433,17 @@ document.addEventListener("change",e=>{
 ["tol","acc"].forEach(id=>{ const el=$("#"+id); if(el) el.addEventListener("change",refreshPointPanel); });
 /* 字典若因故未載入，整頁仍應可用：所有 I18N 呼叫走安全包裝 */
 function TT(k,fb){ try{ return (window.I18N && typeof window.I18N.t==="function") ? window.I18N.t(k) : (fb||k); }catch(e){ return fb||k; } }
+/* 三個說明區塊一律在頂層定義：I18N 只在切換語言時回呼 onLangChange，
+   首次載入不會觸發，故載入時也要自己漆一次，否則 #ptNote 與 #methodsBody 全空 */
 function paintCtxNote(){ const el=$("#ctxNote"); if(el) el.innerHTML=TT("ctx.note",""); }
-window.onLangChange=function(){
-  paintCtxNote(); paintPtNote(); paintMethods();
 function paintPtNote(){ const el=$("#ptNote"); if(el) el.innerHTML=TT("pt.note",""); }
 function paintMethods(){ const el=$("#methodsBody"); if(el) el.innerHTML=TT("methods.body",""); }
-paintPtNote(); paintMethods();
+window.onLangChange=function(){
+  paintCtxNote(); paintPtNote(); paintMethods();
   document.querySelectorAll('[data-role=stat]').forEach((el,i)=>{ if(participants[i]) updateStat(participants[i],el); });
   analyzeContext();
 };
-paintCtxNote();
+paintCtxNote(); paintPtNote(); paintMethods();
 
 /* ---- 專案鎖定與自動抓取 ---- */
 const advEl=document.getElementById("advLocal");

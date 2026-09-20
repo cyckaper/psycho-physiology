@@ -159,7 +159,7 @@ footer.transition a{color:var(--moss)}
 </section>
 
 <footer class="transition">
-  過渡期：現行 App 仍以<a id="openPanel" href="#">舊控制面板</a>遠端啟動；手機端「開始走測」上線後，該面板退役。
+  受測者在 HealthProbe 選定本專案後即可自助走測，範圍與問卷由手機自動取用；研究者不需遠端啟動。
 </footer>
 
 </div>
@@ -199,7 +199,6 @@ async function load(){
   $("openZones").href   = "zones.html?project="+q;
   $("openSurvey").href  = "survey.html?project="+q;
   $("openConsole").href = "console.html?project="+q;
-  $("openPanel").href   = "panel.html?project="+q;
   try{
     const res = await fetch(API+"?id="+q, {cache:"no-store"});
     const data = await res.json();
