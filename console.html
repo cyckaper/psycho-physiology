@@ -836,7 +836,10 @@ function decorrelationTimeSec(ts,xs){
   const T=pairs.map(p=>p[0]), X=pairs.map(p=>p[1]);
   const span=(T[T.length-1]-T[0])/1000;
   if(span<=0) return null;
-  const lags=[5,10,20,30,60,120,300,600,1200].filter(L=>L<span/3);
+  // 延遲網格必須隨序列長度伸縮：跨日序列帶晝夜週期，自相關可持續數小時，
+  // 固定到 20 分鐘會讓 τ 永遠卡在退回值。
+  const lags=[5,10,20,30,60,120,300,600,1200,2400,4800,9600,21600,43200]
+    .filter(L=>L<span/3);
   if(!lags.length) return null;
   let prevL=0, prevA=1;
   for(const L of lags){
@@ -901,7 +904,48 @@ function fmtP(v){
   return v.toFixed(3).replace(/^0/,"");
 }
 
-/* 偏相關：控制第三變項後的相關 */
+/* 最小平方殘差化：把 y 對 [1, X...] 迴歸後取殘差。
+   用於同時控制多個變項；比串接式偏相關公式穩健，也才控制得住環形的時刻。 */
+function residualize(y, Xcols){
+  const n=y.length, k=Xcols.length+1;
+  const rows=[];
+  for(let i=0;i<n;i++){
+    if(!isFinite(y[i])) { rows.push(null); continue; }
+    const r=[1];
+    let ok=true;
+    for(const c of Xcols){ if(!isFinite(c[i])){ ok=false; break; } r.push(c[i]); }
+    rows.push(ok?r:null);
+  }
+  const idx=[]; const X=[]; const Y=[];
+  rows.forEach((r,i)=>{ if(r){ idx.push(i); X.push(r); Y.push(y[i]); } });
+  if(X.length<k+3) return null;
+  // 正規方程 XᵀX b = XᵀY，以高斯消去解
+  const A=Array.from({length:k},()=>new Array(k+1).fill(0));
+  for(let a=0;a<k;a++){
+    for(let b=0;b<k;b++){ let sm=0; for(let i=0;i<X.length;i++) sm+=X[i][a]*X[i][b]; A[a][b]=sm; }
+    let sy=0; for(let i=0;i<X.length;i++) sy+=X[i][a]*Y[i]; A[a][k]=sy;
+  }
+  for(let c=0;c<k;c++){
+    let piv=c;
+    for(let r2=c+1;r2<k;r2++) if(Math.abs(A[r2][c])>Math.abs(A[piv][c])) piv=r2;
+    if(Math.abs(A[piv][c])<1e-10) return null;       // 共線到無法求解
+    [A[c],A[piv]]=[A[piv],A[c]];
+    for(let r2=0;r2<k;r2++){
+      if(r2===c) continue;
+      const f=A[r2][c]/A[c][c];
+      for(let c2=c;c2<=k;c2++) A[r2][c2]-=f*A[c][c2];
+    }
+  }
+  const b=[]; for(let i=0;i<k;i++) b.push(A[i][k]/A[i][i]);
+  const out=new Array(n).fill(NaN);
+  X.forEach((r,j)=>{
+    let fit=0; for(let a=0;a<k;a++) fit+=b[a]*r[a];
+    out[idx[j]]=Y[j]-fit;
+  });
+  return out;
+}
+
+/* 偏相關：控制第三變項後的相關（保留給單一控制變項的情形） */
 function partialR(rxy,rxz,ryz){
   const den=Math.sqrt((1-rxz*rxz)*(1-ryz*ryz));
   return den>0 ? (rxy-rxz*ryz)/den : null;
@@ -1130,13 +1174,24 @@ function renderPointLevel(){
            '（n = '+ds.length+'）</p>';
 
   const ts=ds.map(d=>d.t), hr=ds.map(d=>d.hr), spd=ds.map(d=>d.speed);
+  const hourSin=ds.map(d=>Math.sin(d.hour/24*2*Math.PI));
+  const hourCos=ds.map(d=>Math.cos(d.hour/24*2*Math.PI));
   const spanMin=(ts[ts.length-1]-ts[0])/60000;
   const tauHR=decorrelationTimeSec(ts,hr);
   const prHRspd=pearson(spd,hr);
   const medGap=(()=>{ const g=[]; for(let i=1;i<ts.length;i++) g.push((ts[i]-ts[i-1])/1000);
     g.sort((a,b)=>a-b); return g.length?g[Math.floor(g.length/2)]:null; })();
 
-  let html=summary+'<div class="advnote" style="margin:4px 0 10px">'+
+  const spanH=(ts[ts.length-1]-ts[0])/3600000;
+  let banner="";
+  if(spanH>12){
+    banner='<div style="border-left:4px solid #b8694a;background:#fbf2ec;padding:10px 12px;'+
+      'border-radius:8px;margin:4px 0 12px;font-size:13px;line-height:1.7;color:#7a3f27">'+
+      '<b>⚠ '+TT("pt.banner1","此場次長達 "+spanH.toFixed(0)+" 小時，是走測未按結束所致。")+'</b><br>'+
+      TT("pt.banner2","以下數值<b>不可解讀</b>：跨日紀錄混雜睡眠、通勤與工作，氣溫與心率的相關幾乎必然來自晝夜節律（白天氣溫高、人清醒心率也高），而非環境效果。請先刪除此場次，改以正常結束的短場次分析。")+
+      '</div>';
+  }
+  let html=banner+summary+'<div class="advnote" style="margin:4px 0 10px">'+
     (modeSel!=="__all__" ? '<b>'+(MODE_DEFS.find(m=>m.key===modeSel)||{}).label+'</b>　・　' : '')+
     TT("pt.meta","心率點數")+' n = '+ds.length.toLocaleString()+
     '　・　'+TT("pt.span","時長")+' '+spanMin.toFixed(0)+' '+TT("ctx.min","分")+
@@ -1147,7 +1202,7 @@ function renderPointLevel(){
   html+='<table class="ctxtable"><thead><tr>'+
     '<th>'+TT("inv.colVar","變項")+'</th>'+
     '<th>r</th>'+
-    '<th>'+TT("pt.partial","控制速度後 r")+'</th>'+
+    '<th>'+TT("pt.partial","控制速度與晝夜後 r")+'</th>'+
     '<th>τ</th>'+
     '<th>n<sub>eff</sub></th>'+
     '<th>p</th>'+
@@ -1162,10 +1217,15 @@ function renderPointLevel(){
       html+='<tr><td>'+d.label+'</td>'+'<td class="num flat">—</td>'.repeat(6)+'</tr>';
       continue;
     }
+    // 控制速度＋晝夜。時刻是環形變數（23 點之後回到 0 點），
+    // 以線性項控制不了；必須拆成 sin/cos 兩個分量才洗得掉晝夜節律。
     let pa=null;
-    if(d.key!=="speed" && prHRspd){
-      const prXspd=pearson(xs,spd);
-      if(prXspd) pa=partialR(pr.r, prXspd.r, prHRspd.r);
+    if(d.key!=="speed"){
+      const ctrl=[];
+      if(d.key!=="speed") ctrl.push(spd);
+      if(d.key!=="hour")  { ctrl.push(hourSin, hourCos); }
+      const rx=residualize(xs, ctrl), ry=residualize(hr, ctrl);
+      if(rx&&ry){ const pp=pearson(rx,ry); if(pp) pa=pp.r; }
     }
     const tauX=decorrelationTimeSec(ts,xs);
     const tau=Math.max(tauHR||0, tauX||0) || null;
