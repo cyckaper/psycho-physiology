@@ -55,8 +55,8 @@
 | `survey.html` | 問卷設計，可上傳 PDF/Word 由 AI 解析題目 |
 | `console.html` | **資料主控台**。場次對接、Excel 匯出、Drive 存檔、脈絡分析、點層級分析、模型診斷 |
 | `live.html` | 即時監看地圖 |
-| `guide.html` | 操作手冊（**內容過時，仍停在舊架構，待重寫**） |
-| `panel.html` | 舊控制面板（過渡期保留） |
+| `guide.html` | 操作手冊。中英雙語，內文兩語寫在頁內、靠 `body.en` 擇一顯示（長篇不進 `i18n.js` 共用字典，那份字典每頁都同步載入） |
+| `panel.html` | 舊控制面板。**已退役**（自助走測上線），檔案暫留未刪 |
 | `i18n.js` | 全站中英字典與切換模組 |
 
 ### 後端（`netlify/functions/`）
@@ -69,7 +69,7 @@
 | `data.mjs` | `/api/data` | **場次上傳**。生理／軌跡／環境／EMA／活動／高度 六條流 |
 | `live.mjs` | `/api/live` | 走測即時回報與監看查詢 |
 | `ai-survey.mjs` | `/api/ai-survey` | PDF/Word → AI 解析題目 |
-| `command.mjs` | `/api/command` | 遠端開始／停止（過渡期保留） |
+| `command.mjs` | `/api/command` | 遠端開始／停止。**已退役**，端點暫留以防舊版 App 仍在輪詢 |
 | `drive-sync.mjs` | `/api/drive-sync` | 場次自動封存至 Google Drive |
 | `drive-sync-cron.mjs` | 排程 `*/5 * * * *` | 每 5 分鐘觸發 drive-sync |
 
@@ -120,7 +120,7 @@ GDRIVE_SA_KEY              # 舊服務帳戶，已停用但保留
 # HTML 內嵌 script 語法檢查
 node -e "
 const fs=require('fs');
-for (const f of ['index.html','project.html','zones.html','survey.html','console.html','live.html']) {
+for (const f of ['index.html','project.html','zones.html','survey.html','console.html','live.html','guide.html']) {
   const html=fs.readFileSync(f,'utf8');
   [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].forEach((m,i)=>
     fs.writeFileSync('/tmp/_chk'+i+'.js', m[1]));
@@ -210,8 +210,8 @@ Bundle ID `org.healsdesign.HealthProbe`，Team ID `494F396377`
 |---|---|---|
 | 高 | TestFlight 上架與十組佈署 | 直裝要逐台接線、開發者模式、信任電腦，十組成本過高；簽署一年到期。TestFlight 另有機會解決側載造成的「手錶未安裝本 App」誤判 |
 | 中 | 行事曆分級取用 | 規格已定案（三級：忙碌度／時間結構／含標題），需 EventKit 與 Info.plist 權限字串。預設第一級給受測者 |
-| 中 | `guide.html` 重寫 | 內容停在三個月前的舊架構（遠端遙控那套），與現行自助走測流程不符 |
 | 低 | 資料站改用實測活動類型 | 等有一筆帶 `activity` 欄位的資料回來再做 |
+| 低 | 主控台改用 App 送來的 `speedMps` | `motionStats()` 目前以 haversine 從座標相減推算速度，與 iOS 端「一律取 CoreLocation 原生值」的原則不一致；`altitudeM`／`courseDeg` 也尚未讀用 |
 | 低 | 相關分析的時間加權 | 目前只有顯示做了時間加權，計算仍是點權重。待看實際取樣密度分布再決定，貿然加權可能引入新假設 |
 | 低 | Drive 資料夾更名 | 「HEALS 場域研究」→「讀人 場域研究」 |
 | 低 | 整站通行碼 | 正式收案前加一道 passcode（參考 eco4design 模式） |
