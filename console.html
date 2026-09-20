@@ -984,13 +984,16 @@ function diagnoseVar(ds, key, hr, spd, elapsed, tauHR){
   const blocks = tau ? Math.floor(span/Math.max(2*tau, span/20)) : 0;
 
   let code;
-  if(st.distinct<3)                          code="noVar";      // 變異不足
-  else if(rTime!=null && Math.abs(rTime)>0.95) code="timeCollin"; // 與時間共線
-  else if(rSpeed!=null && Math.abs(rSpeed)>0.85) code="spdCollin"; // 與速度共線
-  else if(blocks>=4)                          code="block";      // 可用區塊法
-  else                                        code="effectOnly"; // 只報效果量
+  if(st.distinct<3)                              code="noVar";       // 變異不足
+  else if(rTime!=null && Math.abs(rTime)>0.95)   code="timeCollin";  // 與經過時間幾乎完全共線
+  else if(rSpeed!=null && Math.abs(rSpeed)>0.85) code="spdCollin";   // 與速度高度共線
+  else if(blocks>=8)                             code="block";       // 區塊充足，可用
+  else if(blocks>=4)                             code="blockWeak";   // 區塊偏少，區間過寬
+  else                                           code="effectOnly";  // 只報效果量
+  // 中度共線：仍可分析但結果要保留
+  const caution = (rTime!=null && Math.abs(rTime)>0.6) || (rSpeed!=null && Math.abs(rSpeed)>0.6);
 
-  return {code, st, rSpeed, rTime, tau, blocks};
+  return {code, st, rSpeed, rTime, tau, blocks, caution};
 }
 
 const VERDICT={
@@ -999,6 +1002,7 @@ const VERDICT={
   timeCollin: {cls:"up",   key:"md.vTime"},
   spdCollin:  {cls:"up",   key:"md.vSpeed"},
   effectOnly: {cls:"flat", key:"md.vEffect"},
+  blockWeak:  {cls:"flat", key:"md.vBlockWeak"},
   block:      {cls:"down", key:"md.vBlock"}
 };
 
@@ -1099,7 +1103,7 @@ function renderModelAdvice(ds, tauHR){
     '<th>'+TT("inv.colVar","變項")+'</th>'+
     '<th>'+TT("md.colVar","變異")+'</th>'+
     '<th>'+TT("md.colSpd","與速度共線")+'</th>'+
-    '<th>'+TT("md.colTime","與時間共線")+'</th>'+
+    '<th>'+TT("md.colTime","與經過時間共線")+'</th>'+
     '<th>'+TT("md.colBlocks","可用區塊")+'</th>'+
     '<th>'+TT("md.colVerdict","判定與建議")+'</th>'+
     '</tr></thead><tbody>';
@@ -1117,12 +1121,15 @@ function renderModelAdvice(ds, tauHR){
       '<td class="num">'+col(dg.rSpeed)+'</td>'+
       '<td class="num">'+col(dg.rTime)+'</td>'+
       '<td class="num flat">'+(dg.blocks||"—")+'</td>'+
-      '<td><span class="'+v.cls+'">'+TT(v.key,"")+'</span></td></tr>';
+      '<td><span class="'+v.cls+'">'+TT(v.key,"")+'</span>'+
+        (dg.caution ? '<br><span class="up" style="font-size:11.5px">⚠ '+TT("md.caution","與速度或經過時間中度共線，結果需保留")+'</span>' : '')+
+        '</td></tr>';
   }
   html+='</tbody></table>';
 
   // 整場次的模型建議：依可用變項數與結構產生
   const usable=rows.filter(r=>r.dg.code==="block").map(r=>r.def.label);
+  const weak=rows.filter(r=>r.dg.code==="blockWeak").map(r=>r.def.label);
   const effOnly=rows.filter(r=>r.dg.code==="effectOnly").length;
   const blocked=rows.filter(r=>["noVar","timeCollin","spdCollin"].includes(r.dg.code));
   const ts=ds.map(o=>o.t), spanMin=(ts[ts.length-1]-ts[0])/60000;
@@ -1135,6 +1142,9 @@ function renderModelAdvice(ds, tauHR){
     advice += TT("md.a3","本場次沒有變項具備足夠的區塊數，僅能報告效果量（r），不做統計推論。時長過短或訊號持續性過高皆會導致此結果。");
   }else{
     advice += TT("md.a4","本場次的環境變項變異不足或與活動、時間高度共線，不建議在此場次內檢驗環境效果。");
+  }
+  if(weak.length){
+    advice += '<br>'+TT("md.aWeak","區塊數偏少、信賴區間過寬，僅供參考的變項：")+'<b>'+weak.join("、")+'</b>。';
   }
   if(blocked.length){
     advice += '<br>'+TT("md.a5","以下變項在本場次不可分析：")+
