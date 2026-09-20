@@ -27,7 +27,12 @@
 ## 二、部署
 
 - Netlify 專案名 **psycho-physiology**，site ID `522fd44d-b625-4943-9a33-5737ae7dce13`
-- 對應 repo：`cyckaper/psychophysiology`（**注意少一個連字號**）
+- 對應 repo：`cyckaper/psycho-physiology`（**有連字號**，與 Netlify 專案名一致）。
+  另有同內容的 `cyckaper/psychophysiology`（無連字號）鏡像，目前 HEAD 與本 repo 同一個 SHA，
+  但 2026-09-20 上線的正式部署，其來源 commit 記在**有連字號**的這個 repo，工作一律在此進行。
+- ⚠ 該次部署的 `deploy_source` 記為 `api`、`manual_deploy: false`。
+  若下次 push 到 main 沒有自動觸發建置，先到 Netlify 後台確認 GitHub 自動建置的連結仍在，
+  不要改用 API 補部署（見下方警告）。
 - 網址：`psycho-physiology.healsdesign.org`
 - **push 到 main 即自動部署**。這是唯一正途。
 
