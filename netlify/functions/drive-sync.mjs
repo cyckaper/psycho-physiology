@@ -1,11 +1,13 @@
 // drive-sync.mjs — 場次自動封存 Google Drive /api/drive-sync
-// 掃描 heals-data 全部場次，尚未推送者以服務帳戶打包上傳：
+// 掃描 heals-data 全部場次，尚未推送者打包上傳（授權見下）：
 //   Drive 根資料夾（GDRIVE_FOLDER_ID）／專案代號／編號_時間_場次短碼／
 //     問卷.json（intake 含 email，＋ema 作答；兩者皆無則不建此檔）
-//     生理.json、軌跡.json、環境.json（空流略過）
+//     生理.json、軌跡.json、環境.json、活動類型.json、高度.json（空流略過）
 // 已推送清單記在 store: heals-drive-log（key 與場次相同），天生冪等、可重試。
 // 由 drive-sync-cron.mjs 每 5 分鐘呼叫；也可直接開 /api/drive-sync 手動觸發驗證。
-// 需要環境變數：GDRIVE_SA_KEY（服務帳戶金鑰 JSON 全文）、GDRIVE_FOLDER_ID（共享資料夾 ID）。
+// 需要環境變數：GDRIVE_FOLDER_ID（資料夾 ID），以及
+//   GDRIVE_OAUTH_CLIENT_ID / GDRIVE_OAUTH_CLIENT_SECRET / GDRIVE_OAUTH_REFRESH_TOKEN。
+// 服務帳戶（GDRIVE_SA_KEY）2025 後已無儲存配額、寫入必定失敗，僅共用雲端硬碟尚可用，勿再採用。
 import { getStore } from "@netlify/blobs";
 import { createSign } from "node:crypto";
 
@@ -311,6 +313,8 @@ export default async (req) => {
       if (Array.isArray(rec.physiology)  && rec.physiology.length)  files.push(["生理.json", rec.physiology]);
       if (Array.isArray(rec.location)    && rec.location.length)    files.push(["軌跡.json", rec.location]);
       if (Array.isArray(rec.environment) && rec.environment.length) files.push(["環境.json", rec.environment]);
+      if (Array.isArray(rec.activity)    && rec.activity.length)    files.push(["活動類型.json", rec.activity]);
+      if (Array.isArray(rec.altitude)    && rec.altitude.length)    files.push(["高度.json", rec.altitude]);
 
       const prevFiles = new Map(((prev && prev.files) || []).map((f) => [f.name, f.id]));
       const uploaded = [];
