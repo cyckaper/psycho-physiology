@@ -110,6 +110,20 @@ GDRIVE_SA_KEY              # 舊服務帳戶，已停用但保留
    曾因整段改寫刪掉仍被引用的 `fmtP()`，語法檢查抓不到，
    執行到那行才爆，整頁空白。
 
+7. **Xcode 簽署失敗，先看 target 的 Team 選對了沒**
+   `cycmail@ntu.edu.tw` 底下掛**兩個團隊**：`Chun-Yen Chang`（Admin，
+   Team ID `494F396377`，正主）與 `Chun Yen Chang|10619785684|1`（**Sales**）。
+   Sales 角色不能建憑證、不能註冊裝置、不能產生描述檔，也無權同意該團隊的合約。
+   專案誤掛到 Sales 時，Xcode 報的是
+   「Unable to process request - PLA Update available: You currently don't have
+   access to this membership」——看起來像合約沒簽，其實是選錯團隊，
+   跑去同意合約、重登帳號、清描述檔**通通沒用**。2026-10-02 為此卡掉一小時。
+   一眼判別：Xcode 設定 → Apple Accounts 點進團隊，Sales 那個的
+   「Certificates, Identifiers, & Profiles」是紅色 ⊗，Admin 的是綠色 ✓ 且有
+   On Device Testing 與 Download Manual Profiles。
+   改的時候**每一個 target 都要改**（主程式、Watch App、各擴充），
+   漏一個的錯誤訊息和沒改時一模一樣，很容易誤判成沒生效。
+
 ---
 
 ## 五、開發慣例
@@ -182,6 +196,7 @@ for f in netlify/functions/*.mjs; do node --check "$f" || exit 1; done
 
 Xcode 專案在 Jake 的 Mac：`~/Desktop/HealthProbe/`
 Bundle ID `org.healsdesign.HealthProbe`，Team ID `494F396377`
+（＝Apple Accounts 裡的 `Chun-Yen Chang`／Admin 那個；另一個 Sales 團隊簽不了，見血淚教訓七）
 
 **最近一批已完成並裝機**（2026-09-20）：
 
@@ -208,7 +223,7 @@ Bundle ID `org.healsdesign.HealthProbe`，Team ID `494F396377`
 
 | 優先 | 項目 | 說明 |
 |---|---|---|
-| 高 | TestFlight 上架與十組佈署 | 直裝要逐台接線、開發者模式、信任電腦，十組成本過高；簽署一年到期。TestFlight 另有機會解決側載造成的「手錶未安裝本 App」誤判 |
+| 高 | TestFlight 上架與十組佈署 | 直裝要逐台接線、開發者模式、信任電腦，十組成本過高；簽署一年到期。TestFlight 另有機會解決側載造成的「手錶未安裝本 App」誤判。逐台直裝時每台都要過一次簽署，見血淚教訓七 |
 | 中 | 行事曆分級取用 | 規格已定案（三級：忙碌度／時間結構／含標題），需 EventKit 與 Info.plist 權限字串。預設第一級給受測者 |
 | 低 | 資料站改用實測活動類型 | 等有一筆帶 `activity` 欄位的資料回來再做 |
 | 低 | 主控台改用 App 送來的 `speedMps` | `motionStats()` 目前以 haversine 從座標相減推算速度，與 iOS 端「一律取 CoreLocation 原生值」的原則不一致；`altitudeM`／`courseDeg` 也尚未讀用 |
