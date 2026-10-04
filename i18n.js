@@ -242,7 +242,12 @@
     "live.updated":     ["更新於", "Updated"],
     "live.secAgo":      ["秒前", "s ago"],
     "live.minAgo":      ["分前", "min ago"],
-    "live.pos":         ["位置", "position"]
+    "live.pos":         ["位置", "position"],
+    "live.woOn":        ["運動中", "workout on"],
+    "live.woOff":       ["手錶運動未確認", "workout not confirmed"],
+    "live.woStall":     ["運動中但心率停更", "workout on, heart rate stalled"],
+    "live.woHelp":      ["⌚ 表示手錶上的 App 正在體能訓練，心率才會密集且即時；出現 ⚠ 請立刻看手錶。",
+                         "⌚ means the watch app is running its workout, which is what makes heart rate dense and live; if you see ⚠, check the watch right away."]
   };
 
   var lang = "zh";

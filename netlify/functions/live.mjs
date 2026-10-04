@@ -1,7 +1,8 @@
 // live.mjs — 走測即時回報 /api/live
-// POST {project, code, session, lat, lng, hr, hrAt}
+// POST {project, code, session, lat, lng, hr, hrAt, wo}
 //   → 手機走測中每 ~30 秒回報一次；一專案一筆 blob，內含各裝置最新狀態（覆寫）。
-// GET ?project=aa      → { project, devices:[{code,session,lat,lng,hr,hrAt,t,ageSec}] }（3 分鐘內視為在線）
+//   wo：手錶上本 App 的體能訓練是否確認在跑（true / false / 省略＝未知或舊版 App）。
+// GET ?project=aa      → { project, devices:[{code,session,lat,lng,hr,hrAt,wo,t,ageSec}] }（3 分鐘內視為在線）
 // GET ?all=1           → { projects:[{id,name,devices:[...]}] }（讀專案登記表逐案彙整）
 // 約定：CORS *、no-store、strong consistency；鍵剔除「#」。
 import { getStore } from "@netlify/blobs";
@@ -58,6 +59,10 @@ export default async (req) => {
       lng: Number.isFinite(Number(body.lng)) ? Number(body.lng) : null,
       hr:  Number.isFinite(Number(body.hr))  ? Math.round(Number(body.hr)) : null,
       hrAt: Number.isFinite(Number(body.hrAt)) ? Number(body.hrAt) : null,
+      // 體能訓練沒在跑時，手錶心率只會零星抽測、App 也會被系統掛起，即時心率整條失效；
+      // 監看頁靠這個欄位當場示警。只認布林值，其他一律視為未知——
+      // 不可把「沒送」當成 false，舊版 App 根本不送這個欄位。
+      wo: typeof body.wo === "boolean" ? body.wo : null,
       t: Date.now(),
     };
     const store = liveStore();
