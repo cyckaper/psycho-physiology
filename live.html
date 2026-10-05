@@ -9,7 +9,7 @@
   :root{
     --cream:#faf6ea; --paper:#fffdf7; --line:#e7ddc6;
     --moss:#5b7a45; --moss-deep:#3f5a2f; --teal:#2c6b5f; --clay:#b8694a;
-    --ink:#33301f; --soft:#6b6750;
+    --ink:#33301f; --soft:#6b6750; --alert:#b03a2e;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--cream);color:var(--ink);
@@ -42,6 +42,10 @@
     border:1px dashed var(--line);border-radius:12px;background:var(--paper);}
   .hrchip{font-weight:700;color:var(--clay);}
   .hrchip.stale{color:var(--soft);font-weight:500;}
+  .wochip{white-space:nowrap;}
+  .wochip.on{color:var(--moss);}
+  .wochip.bad{color:var(--alert);font-weight:700;}
+  .legend{font-size:12.5px;margin-top:-8px;}
 </style>
 <script src="i18n.js"></script>
 </head>
@@ -49,6 +53,7 @@
 <div class="wrap">
   <h1>HEALS<span class="zh" data-i18n="live.title">即時監看</span></h1><span id="langSlot" style="float:right"></span>
   <p class="sub" data-i18n="live.sub">走測中的裝置每半分鐘回報一次位置與最近心率；超過三分鐘沒回報就視為離線。心率來自 Apple Watch 經 HealthKit 遞送，可能落後實際數十秒到數分鐘。</p>
+  <p class="sub legend" data-i18n="live.woHelp">⌚ 表示手錶上的 App 正在體能訓練，心率才會密集且即時；出現 ⚠ 請立刻看手錶。</p>
   <div class="rule"></div>
 
   <div class="bar">
@@ -101,6 +106,27 @@
     var a = hrAgeSec(dv);
     return a != null && a > 120;
   }
+
+  /* 手錶上本 App 的體能訓練狀態。沒在跑時心率只會零星抽測、App 也會被系統掛起，
+     即時心率整條失效，而且研究者在現場完全看不出來——直到匯出才發現整場報廢。
+     wo 由手機依手錶回報推定：true＝手錶說在跑；false＝手錶說沒在跑，
+     或走測開始一段時間仍沒收到手錶的回報。沒有這個欄位＝舊版 App 或剛開始，
+     一律不顯示，寧可沉默也不誤報。
+     手錶說在跑、心率卻超過兩分鐘沒更新（或根本沒有心率），代表樣本沒送到
+     （手錶離腕、走出藍牙範圍、App 被系統中止，或手錶端心率沒接上），同樣要示警——
+     綠色的「運動中」配上一個 ♥— 會讓人以為一切正常。 */
+  function woState(dv){
+    if (dv.wo === false) return "off";
+    if (dv.wo === true) return (hrAgeSec(dv) == null || hrStale(dv)) ? "stall" : "on";
+    return null;
+  }
+  function woLabel(st){
+    if (st === "on") return "⌚" + I18N.t("live.woOn");
+    if (st === "off") return "⚠ " + I18N.t("live.woOff");
+    if (st === "stall") return "⚠ " + I18N.t("live.woStall");
+    return "";
+  }
+  function woBad(st){ return st === "off" || st === "stall"; }
 
   function colorFor(id){
     var h = 0;
@@ -166,12 +192,15 @@
 
       devs.forEach(function(dv){
         if (dv.lat == null || dv.lng == null) return;
+        var st = woState(dv), bad = woBad(st);
         var m = L.circleMarker([dv.lat, dv.lng], {
-          radius: 9, color: "#fff", weight: 2, fillColor: color, fillOpacity: .95
+          radius: 9, color: bad ? "#b03a2e" : "#fff", weight: bad ? 3 : 2,
+          dashArray: bad ? "4 3" : null, fillColor: color, fillOpacity: .95
         }).addTo(map);
         m.bindTooltip(
           (g.name || g.id) + " " + (dv.code || "") +
-          (dv.hr != null ? "　♥" + dv.hr + (hrAgeText(dv) ? "（" + hrAgeText(dv) + "）" : "") : "　♥—"),
+          (dv.hr != null ? "　♥" + dv.hr + (hrAgeText(dv) ? "（" + hrAgeText(dv) + "）" : "") : "　♥—") +
+          (bad ? "　" + woLabel(st) : ""),
           { permanent: true, direction: "top", offset: [0, -8] });
         markers.push(m);
         pts.push([dv.lat, dv.lng]);
@@ -184,9 +213,11 @@
         ? devs.map(function(dv){
             var age = hrAgeText(dv);
             var cls = hrStale(dv) ? "hrchip stale" : "hrchip";
+            var st = woState(dv);
+            var wo = st ? "・<span class='wochip " + (woBad(st) ? "bad" : "on") + "'>" + woLabel(st) + "</span>" : "";
             return (dv.code || "？") + "（<span class='" + cls + "'>♥" +
                    (dv.hr != null ? dv.hr : "—") + (age ? " " + age : "") +
-                   "</span>・" + I18N.t("live.pos") + " " + dv.ageSec + " " +
+                   "</span>" + wo + "・" + I18N.t("live.pos") + " " + dv.ageSec + " " +
                    I18N.t("live.secAgo") + "）";
           }).join("　")
         : "<span class='meta'>" + I18N.t('live.noneHere') + "</span>";
@@ -215,7 +246,7 @@
       $("#me").style.display = "flex";
       if (meFound) {
         $("#meHr").textContent = meFound.hr != null ? meFound.hr : "—";
-        $("#meInfo").textContent = meFound.code + "・" + I18N.t("live.pos") + " " + meFound.ageSec + " " + I18N.t("live.secAgo") + (hrAgeText(meFound) ? "・♥ " + hrAgeText(meFound) : "");
+        $("#meInfo").textContent = meFound.code + "・" + I18N.t("live.pos") + " " + meFound.ageSec + " " + I18N.t("live.secAgo") + (hrAgeText(meFound) ? "・♥ " + hrAgeText(meFound) : "") + (woState(meFound) ? "・" + woLabel(woState(meFound)) : "");
         if (meFound.lat != null) map.setView([meFound.lat, meFound.lng], Math.max(map.getZoom(), 16));
       } else {
         $("#meHr").textContent = "—";
