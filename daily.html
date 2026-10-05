@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>每日紀錄 — 讀人 · 即時心理生理研究平台</title>
+<style>
+  :root{
+    --cream:#faf6ea; --paper:#fffdf7; --line:#e7ddc6;
+    --moss:#5b7a45; --moss-deep:#3f5a2f; --teal:#2c6b5f; --clay:#b8694a;
+    --ink:#33301f; --soft:#6b6750;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--cream);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","PingFang TC",sans-serif;line-height:1.6;}
+  .wrap{max-width:1000px;margin:0 auto;padding:20px 16px 60px;}
+  h1{font-family:"Noto Serif TC",Georgia,serif;font-size:24px;color:var(--moss-deep);margin:0 0 4px;letter-spacing:.5px;}
+  h1 span.zh{margin-left:10px;font-size:19px;}
+  .sub{color:var(--soft);font-size:14px;margin:0 0 14px;}
+  .rule{height:3px;background:linear-gradient(90deg,var(--moss),var(--teal));border-radius:3px;margin:0 0 16px;}
+  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0 14px;}
+  .backlink{color:var(--moss-deep);text-decoration:none;font-size:14px;}
+  .backlink:hover{text-decoration:underline;}
+  .meta{font-size:12.5px;color:var(--soft);}
+  h2{font-size:16px;color:var(--moss-deep);margin:22px 0 8px;}
+  .day{background:var(--paper);border:1px solid var(--line);border-radius:12px;margin:0 0 10px;}
+  .day > summary{cursor:pointer;padding:11px 14px;list-style:none;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;}
+  .day > summary::-webkit-details-marker{display:none}
+  .day > summary::before{content:"▸";color:var(--soft);font-size:12px;}
+  .day[open] > summary::before{content:"▾";}
+  .day .date{font-weight:700;color:var(--moss-deep);}
+  .day .body{padding:0 14px 12px;}
+  .proj{margin:8px 0 14px;}
+  .proj .head{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:4px;}
+  .proj .name{font-weight:700;}
+  .tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:8px;}
+  table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap;}
+  th,td{padding:6px 9px;border-bottom:1px solid var(--line);text-align:right;}
+  th{background:#f3eddc;color:var(--soft);font-weight:600;}
+  th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left;}
+  tr:last-child td{border-bottom:none;}
+  tr.sum td{font-weight:700;background:#f8f3e4;}
+  .pending{color:var(--clay);font-weight:600;}
+  .empty{color:var(--soft);font-size:14px;padding:14px;text-align:center;
+    border:1px dashed var(--line);border-radius:12px;background:var(--paper);}
+  .live{border-color:var(--moss);}
+  .tag{font-size:11.5px;color:#fff;background:var(--moss);border-radius:999px;padding:1px 8px;}
+  a.drive{font-size:12.5px;color:var(--teal);}
+</style>
+<script src="i18n.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <h1>HEALS<span class="zh" data-i18n="daily.title">每日紀錄</span></h1><span id="langSlot" style="float:right"></span>
+  <p class="sub" data-i18n="daily.sub">每天台北時間凌晨自動彙整前一天有走測的專案，列出每一場的受測編號、開始時間、時長與各類資料筆數，並在 Google Drive「每日紀錄」資料夾存一份 CSV。場次以開始時間歸日；不含作答內容與 email。</p>
+  <div class="rule"></div>
+
+  <div class="bar">
+    <a class="backlink" href="index.html" data-i18n="nav.back">← 專案列表</a>
+    <span style="flex:1"></span>
+    <span class="meta" id="stamp">—</span>
+  </div>
+
+  <h2 data-i18n="daily.today">今天（即時彙整，尚未定稿）</h2>
+  <div id="today"></div>
+
+  <h2 data-i18n="daily.past">過去的紀錄</h2>
+  <div id="days"></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var $ = function(s){ return document.querySelector(s); };
+  var STREAMS = ["physiology","location","environment","ema","activity","altitude"];
+  var cache = {};          // date → 紀錄，切語言時直接重畫，不重抓
+  var todayRec = null, index = null;
+
+  function esc(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];
+    });
+  }
+  function hhmm(ms){
+    if(ms == null) return "—";
+    return new Date(ms).toLocaleTimeString("sv-SE", {timeZone:"Asia/Taipei", hour:"2-digit", minute:"2-digit"});
+  }
+  function n(x){ return (x || 0).toLocaleString(); }
+
+  function projectBlock(p){
+    var head = '<div class="head"><span class="name">' + esc(p.name) + '</span>' +
+      '<span class="meta">' + esc(p.id) + '・' + p.totals.sessions + ' ' + I18N.t("daily.sessions") +
+      '・' + p.totals.participants + ' ' + I18N.t("daily.people") +
+      '・' + n(p.totals.durationMin) + ' ' + I18N.t("daily.min") + '</span></div>';
+    var th = '<tr><th>' + I18N.t("daily.code") + '</th><th>' + I18N.t("daily.start") + '</th><th>' +
+      I18N.t("daily.dur") + '</th>' +
+      STREAMS.map(function(k){ return '<th>' + I18N.t("daily.s." + k) + '</th>'; }).join("") +
+      '<th>' + I18N.t("daily.state") + '</th></tr>';
+    var rows = p.sessions.map(function(s){
+      return '<tr><td>' + esc(s.code) + '</td><td>' + hhmm(s.start) + '</td><td>' +
+        (s.durationMin == null ? "—" : n(s.durationMin)) + '</td>' +
+        STREAMS.map(function(k){ return '<td>' + n(s.counts && s.counts[k]) + '</td>'; }).join("") +
+        '<td>' + (s.final ? I18N.t("daily.final") : '<span class="pending">' + I18N.t("daily.inprog") + '</span>') +
+        '</td></tr>';
+    }).join("");
+    var sum = '<tr class="sum"><td>' + I18N.t("daily.total") + '</td><td></td><td>' + n(p.totals.durationMin) + '</td>' +
+      STREAMS.map(function(k){ return '<td>' + n(p.totals.counts[k]) + '</td>'; }).join("") + '<td></td></tr>';
+    return '<div class="proj">' + head + '<div class="tablewrap"><table>' + th + rows + sum + '</table></div></div>';
+  }
+
+  function dayBody(rec){
+    if(!rec.projects || !rec.projects.length) return '<div class="meta">' + I18N.t("daily.none") + '</div>';
+    var html = rec.projects.map(projectBlock).join("");
+    if(rec.partial) html += '<div class="meta pending">' + I18N.t("daily.partial") + '</div>';
+    if(rec.drive && rec.drive.fileId){
+      html += '<a class="drive" target="_blank" rel="noopener" href="https://drive.google.com/file/d/' +
+        encodeURIComponent(rec.drive.fileId) + '/view">' + I18N.t("daily.drive") + ' ' + esc(rec.drive.name || "") + '</a>';
+    }
+    return html;
+  }
+
+  function renderToday(){
+    var box = $("#today");
+    if(!todayRec){ box.innerHTML = '<div class="empty">…</div>'; return; }
+    if(!todayRec.totals || !todayRec.totals.sessions){
+      box.innerHTML = '<div class="empty">' + I18N.t("daily.todayNone") + '</div>'; return;
+    }
+    box.innerHTML = '<div class="day live" style="padding:6px 14px 2px"><div class="body" style="padding:0">' +
+      dayBody(todayRec) + '</div></div>';
+  }
+
+  function summaryLine(d){
+    return '<span class="date">' + esc(d.date) + '</span><span class="meta">' +
+      d.projects + ' ' + I18N.t("daily.projects") + '・' + d.sessions + ' ' + I18N.t("daily.sessions") + '</span>';
+  }
+
+  function renderDays(){
+    var box = $("#days");
+    if(!index){ box.innerHTML = '<div class="empty">…</div>'; return; }
+    var past = index.dates.filter(function(d){ return d.date !== index.today; });
+    if(!past.length){ box.innerHTML = '<div class="empty">' + I18N.t("daily.empty") + '</div>'; return; }
+    var open = {};
+    [].forEach.call(document.querySelectorAll("#days details[open]"), function(el){ open[el.dataset.date] = true; });
+    box.innerHTML = past.map(function(d){
+      var body = cache[d.date] ? dayBody(cache[d.date]) : '<div class="meta">…</div>';
+      return '<details class="day" data-date="' + esc(d.date) + '"' + (open[d.date] ? " open" : "") + '>' +
+        '<summary>' + summaryLine(d) + '</summary><div class="body">' + body + '</div></details>';
+    }).join("");
+    [].forEach.call(box.querySelectorAll("details"), function(el){
+      el.addEventListener("toggle", function(){ if(el.open) loadDay(el.dataset.date); });
+    });
+  }
+
+  function loadDay(date){
+    if(cache[date]) return;
+    fetch("/api/daily-log?date=" + encodeURIComponent(date), {cache:"no-store"})
+      .then(function(r){ return r.json(); })
+      .then(function(rec){ cache[date] = rec; renderDays(); })
+      .catch(function(e){
+        var el = document.querySelector('#days details[data-date="' + date + '"] .body');
+        if(el) el.textContent = I18N.t("daily.fail") + e.message;
+      });
+  }
+
+  function refresh(){
+    fetch("/api/daily-log?date=today", {cache:"no-store"})
+      .then(function(r){ return r.json(); })
+      .then(function(rec){ todayRec = rec; renderToday(); })
+      .catch(function(e){ $("#today").textContent = I18N.t("daily.fail") + e.message; });
+    fetch("/api/daily-log", {cache:"no-store"})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        index = d; renderDays();
+        $("#stamp").textContent = I18N.t("live.updated") + " " + new Date().toLocaleTimeString();
+      })
+      .catch(function(e){ $("#days").textContent = I18N.t("daily.fail") + e.message; });
+  }
+
+  window.onLangChange = function(){ renderToday(); renderDays(); };
+  renderToday(); renderDays();
+  refresh();
+})();
+</script>
+</body>
+</html>
