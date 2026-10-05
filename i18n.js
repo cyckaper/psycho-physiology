@@ -230,8 +230,8 @@
 
     /* ── 監看頁 ── */
     "live.title":       ["即時監看", "Live Monitor"],
-    "live.sub":         ["走測中的裝置每半分鐘回報一次位置與最近心率；超過三分鐘沒回報就視為離線。心率來自 Apple Watch 經 HealthKit 遞送，可能落後實際數十秒到數分鐘。",
-                         "Devices in session report position and latest heart rate every 30 seconds; no report for three minutes counts as offline. Heart rate arrives via HealthKit from the Apple Watch and may lag by seconds to minutes."],
+    "live.sub":         ["走測中的裝置每半分鐘回報一次位置與最近心率；超過三分鐘沒回報就視為離線。心率由 Apple Watch 即時推送，通常落後數十秒以內；手錶沒在體能訓練時會變稀疏或停更，裝置旁會標 ⚠。",
+                         "Devices in session report position and latest heart rate every 30 seconds; no report for three minutes counts as offline. Heart rate is pushed live from the Apple Watch and usually lags by well under a minute; if the watch is not running its workout it turns sparse or stalls, and the device is marked ⚠."],
     "live.scope":       ["範圍", "Scope"],
     "live.all":         ["全部專案", "All projects"],
     "live.waiting":     ["等待你的裝置回報…", "Waiting for your device…"],
