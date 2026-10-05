@@ -67,7 +67,7 @@
 | `zones.mjs` | `/api/zones` | 反應區 GeoJSON |
 | `survey.mjs` | `/api/survey` | 問卷定義（intake + ema） |
 | `data.mjs` | `/api/data` | **場次上傳**。生理／軌跡／環境／EMA／活動／高度 六條流 |
-| `live.mjs` | `/api/live` | 走測即時回報與監看查詢 |
+| `live.mjs` | `/api/live` | 走測即時回報與監看查詢（含 `wo`：手錶上本 App 的體能訓練是否在跑） |
 | `ai-survey.mjs` | `/api/ai-survey` | PDF/Word → AI 解析題目 |
 | `command.mjs` | `/api/command` | 遠端開始／停止。**已退役**，端點暫留以防舊版 App 仍在輪詢 |
 | `drive-sync.mjs` | `/api/drive-sync` | 場次自動封存至 Google Drive |
@@ -123,6 +123,31 @@ GDRIVE_SA_KEY              # 舊服務帳戶，已停用但保留
    On Device Testing 與 Download Manual Profiles。
    改的時候**每一個 target 都要改**（主程式、Watch App、各擴充），
    漏一個的錯誤訊息和沒改時一模一樣，很容易誤判成沒生效。
+
+8. **手錶 App 必須包進手機版，不能是 standalone**
+   原本 Watch App target 的 Info 設了「App is only available as a standalone watchOS app」=YES，
+   iPhone target 也沒有 Embed Watch Content。後果一連串：iPhone「Watch」App 的可安裝清單裡沒有
+   HealthProbe；手機的 `WCSession.isWatchAppInstalled` 一直是 false（畫面誤導受測者去開「戶外步行」）；
+   手錶只能靠 Xcode 的無線通道安裝，偏偏那條常報「Bluetooth connection to the device was
+   invalidated before tunnel could be created」，2026-10-05 為此卡掉半天。
+   正確設定：Watch target 的 standalone 設 NO、加 `WKCompanionAppBundleIdentifier`
+   ＝`org.healsdesign.HealthProbe`；Watch 的 Bundle ID 必須以手機版為前綴
+   （`org.healsdesign.HealthProbe.watchkitapp`）；iPhone target 的 Build Phases 加 Target Dependency
+   與 Copy Files 階段「Embed Watch Content」（Products Directory，Subpath
+   `$(CONTENTS_FOLDER_PATH)/Watch`），放進去的是 **`.app` 產物，不是 `.swift`**；
+   「Code Sign On Copy」反灰勾不了是正常的。之後跑 iPhone scheme 手錶版就跟著裝，TestFlight 也靠這個結構。
+
+9. **WCSession 的 delegate 每台裝置只能有一個主人**
+   手機端是 `WatchLink`，手錶端是 `WorkoutProbe`（兩者都在 init 裡設 delegate 並 activate）。
+   新功能要收 WatchConnectivity 訊息，**一律在這兩支的 delegate 方法裡轉發**，不可自己再設
+   `WCSession.default.delegate`——後設的會把前一個整個頂掉，不報錯，
+   手錶端被頂掉時手機按「結束」手錶就收不到，走測停不下來。
+
+10. **Swift 檔一律以檔案取代，不要從預覽複製貼上**
+   預覽畫面會吃掉字串插值 `\(` 的反斜線，引號跟著錯位，整支檔案的括號全亂，
+   Xcode 報一長串「Expected '}'」與連帶的「找不到成員」。取代時在 Xcode 對檔案右鍵
+   「Show in Finder」，確定換的是它實際編譯的那一份。另外，左側問題清單會留著上一次建置的
+   舊錯誤（常是灰色圖示），換完檔要清除建置資料夾重建一次才會更新，別對著舊錯誤除錯。
 
 ---
 
@@ -195,7 +220,7 @@ for f in netlify/functions/*.mjs; do node --check "$f" || exit 1; done
 ## 七、iOS 端現況（不在本 repo，但後端契約相關）
 
 Xcode 專案在 Jake 的 Mac：`~/Desktop/HealthProbe/`
-Bundle ID `org.healsdesign.HealthProbe`，Team ID `494F396377`
+Bundle ID `org.healsdesign.HealthProbe`（手錶 `org.healsdesign.HealthProbe.watchkitapp`，包在手機版內，見血淚教訓八），Team ID `494F396377`
 （＝Apple Accounts 裡的 `Chun-Yen Chang`／Admin 那個；另一個 Sales 團隊簽不了，見血淚教訓七）
 
 **最近一批已完成並裝機**（2026-09-20）：
@@ -209,6 +234,24 @@ Bundle ID `org.healsdesign.HealthProbe`，Team ID `494F396377`
 - `RemoteSwitch.swift` — 上傳包新增 `activity` / `altitude`；
   加入忘記結束的防護（3 小時提醒、6 小時自動結束並上傳）
 
+**即時心率一批**（2026-10-05 裝機實測通過：監看頁心率年齡數十秒內、與手錶一致）：
+
+- `LiveHeartRelay.swift`（新增，手錶）— workout builder 每收到心率就經 WatchConnectivity 推給手機
+  （5 秒節流；可達走 `sendMessage`，否則 `updateApplicationContext` 只留最新一筆），
+  並回報「本 App 的體能訓練是否在跑」。手錶畫面那行小字是它的自我診斷（「⌚ msg #n 心率」＝正常）
+- `LiveHeartReceiver.swift`（新增，iOS）— 收最新心率與訓練狀態；`reportFields()` 每次 `/api/live` 回報呼叫一次
+- `WorkoutProbe.swift` — 接上 relay；session 被別的體能訓練或系統結束時把 `running` 歸零
+  （原本會卡在 true，之後 iPhone 再叫也開不起來）
+- `WatchLink.swift` — 轉發手錶訊息給 receiver；**整場走測每 25 秒看守**，訓練沒在跑就重叫
+  （`startWatchApp` 加送 `{"cmd":"start"}`，手錶端已在跑會略過，不會開出第二個 session），
+  每次中斷最多重試三次後發通知；按「結束走測」先取消看守。誤判未安裝時不再請受測者開「戶外步行」
+- `RemoteSwitch.swift` — 回報心率取「即時推送、HealthKit 查詢、既有串流」三者最新；多送 `wo`
+- `MainView.swift` — 移除「請在 Apple Watch 開戶外步行」；Apple Watch 列以手錶回報的訓練狀態為準
+
+背後的兩個事實：沒有體能訓練時手錶心率只會幾分鐘抽測一次、App 也會被掛起，即時通道整條失效；
+Apple Watch 同時只能跑一個體能訓練，另開會讓原本的收到 `HKErrorAnotherWorkoutSession` 並結束。
+所以**受測者不要自己開「戶外步行」，也不要在手錶上按停止**，結束一律在手機按。
+
 **Info.plist 需有**：`NSMotionUsageDescription`（少了會閃退）
 
 ### 後端契約
@@ -217,13 +260,17 @@ Bundle ID `org.healsdesign.HealthProbe`，Team ID `494F396377`
 （舊版 App 未送 → 空陣列，計數為 0）。`drive-sync.mjs` 會多封存
 `活動類型.json` 與 `高度.json`。
 
+`live.mjs` 接受 `wo`（布林；不送或非布林一律存 `null`，**不可當成 false**，舊版 App 根本不送）。
+監看頁據此標 ⌚運動中／⚠ 手錶運動未確認／⚠ 運動中但心率停更，沒有 `wo` 的裝置不標。
+
 ---
 
 ## 八、待辦
 
 | 優先 | 項目 | 說明 |
 |---|---|---|
-| 高 | TestFlight 上架與十組佈署 | 直裝要逐台接線、開發者模式、信任電腦，十組成本過高；簽署一年到期。TestFlight 另有機會解決側載造成的「手錶未安裝本 App」誤判。逐台直裝時每台都要過一次簽署，見血淚教訓七 |
+| 高 | TestFlight 上架與十組佈署 | 直裝要逐台接線、開發者模式、信任電腦，十組成本過高；簽署一年到期。手錶 App 已改為包進手機版（血淚教訓八），結構上可直接 Archive 上傳。逐台直裝時每台都要過一次簽署，見血淚教訓七 |
+| 中 | 即時心率第二階段：串流直接入庫 | 手錶推來的樣本目前只供監看。若同時寫進生理流，結束後就不必「等 Apple Watch 同步再上傳一次補齊心率」（手冊第五節那套流程可退役） |
 | 中 | 行事曆分級取用 | 規格已定案（三級：忙碌度／時間結構／含標題），需 EventKit 與 Info.plist 權限字串。預設第一級給受測者 |
 | 低 | 資料站改用實測活動類型 | 等有一筆帶 `activity` 欄位的資料回來再做 |
 | 低 | 主控台改用 App 送來的 `speedMps` | `motionStats()` 目前以 haversine 從座標相減推算速度，與 iOS 端「一律取 CoreLocation 原生值」的原則不一致；`altitudeM`／`courseDeg` 也尚未讀用 |
