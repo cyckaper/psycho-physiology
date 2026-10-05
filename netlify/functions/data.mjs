@@ -7,6 +7,7 @@
 //          後三者舊版 App 未送 → 一律空陣列、計數為 0，不使舊裝置上傳失敗。
 // 儲存：Netlify Blobs（store: "heals-data"，key = 專案/編號/場次）。
 import { getStore } from "@netlify/blobs";
+import { summarize } from "../lib/session-summary.mjs";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -72,7 +73,10 @@ export default async (req) => {
       let man = null;
       try { man = await idx.get("manifest", { type: "json" }); } catch (_) { /* 首次尚無清單簿 */ }
       if (!man || typeof man !== "object" || !man.keys || typeof man.keys !== "object") man = { keys: {} };
-      man.keys[key] = { t: record.uploadedAt, final: isFinal };
+      // 摘要（開始／結束時間、各流筆數）順手登記，每日紀錄只讀清單簿就能彙整，不必逐筆讀整場資料
+      let sum = null;
+      try { sum = summarize(record); } catch (_) { /* 算不出就不登記，每日紀錄會改讀整筆 */ }
+      man.keys[key] = { t: record.uploadedAt, final: isFinal, ...(sum ? { sum } : {}) };
       await idx.setJSON("manifest", man);
     } catch (_) { /* 登記失敗不影響上傳本體；drive-sync 仍可靠 list() 撈到 */ }
     return reply({ ok: true, key, counts: record.counts });

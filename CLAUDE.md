@@ -55,6 +55,7 @@
 | `survey.html` | 問卷設計，可上傳 PDF/Word 由 AI 解析題目 |
 | `console.html` | **資料主控台**。場次對接、Excel 匯出、Drive 存檔、脈絡分析、點層級分析、模型診斷 |
 | `live.html` | 即時監看地圖 |
+| `daily.html` | 每日紀錄：逐日列出有走測的專案、各場次與六條流筆數；今天為即時彙整 |
 | `guide.html` | 操作手冊。中英雙語，內文兩語寫在頁內、靠 `body.en` 擇一顯示（長篇不進 `i18n.js` 共用字典，那份字典每頁都同步載入） |
 | `panel.html` | 舊控制面板。**已退役**（自助走測上線），檔案暫留未刪 |
 | `i18n.js` | 全站中英字典與切換模組 |
@@ -72,6 +73,13 @@
 | `command.mjs` | `/api/command` | 遠端開始／停止。**已退役**，端點暫留以防舊版 App 仍在輪詢 |
 | `drive-sync.mjs` | `/api/drive-sync` | 場次自動封存至 Google Drive |
 | `drive-sync-cron.mjs` | 排程 `*/5 * * * *` | 每 5 分鐘觸發 drive-sync |
+| `daily-log.mjs` | `/api/daily-log` | 每日紀錄：彙整某日（台北時間，以場次開始時間歸日）的專案與筆數，存 `heals-daily-log`，並在 Drive「每日紀錄」資料夾寫 CSV |
+| `daily-log-cron.mjs` | 排程 `10 16 * * *` | UTC 16:10＝台北 00:10，彙整昨天並重做前天（接住隔天補傳的心率） |
+
+共用模組放在 `netlify/lib/`（不在 functions 目錄，免得被當成端點）：
+`session-summary.mjs` 算場次摘要（開始／結束時間、各流筆數）。`data.mjs` 上傳時把摘要
+登記進清單簿 `heals-data-index/manifest` 的 `sum`，每日紀錄只讀清單簿即可；
+`sum` 只含時間、筆數與受測編號，**不可放作答內容或 email**。
 
 ### 環境變數（Netlify 後台設定，不在 repo）
 
@@ -159,14 +167,14 @@ GDRIVE_SA_KEY              # 舊服務帳戶，已停用但保留
 # HTML 內嵌 script 語法檢查
 node -e "
 const fs=require('fs');
-for (const f of ['index.html','project.html','zones.html','survey.html','console.html','live.html','guide.html']) {
+for (const f of ['index.html','project.html','zones.html','survey.html','console.html','live.html','guide.html','daily.html']) {
   const html=fs.readFileSync(f,'utf8');
   [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].forEach((m,i)=>
     fs.writeFileSync('/tmp/_chk'+i+'.js', m[1]));
 }"
 for js in /tmp/_chk*.js; do node --check "$js" || exit 1; done
 node --check i18n.js
-for f in netlify/functions/*.mjs; do node --check "$f" || exit 1; done
+for f in netlify/functions/*.mjs netlify/lib/*.mjs; do node --check "$f" || exit 1; done
 ```
 
 ### 統計／分析程式碼
