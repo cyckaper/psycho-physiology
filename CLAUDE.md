@@ -264,6 +264,10 @@ Apple Watch 同時只能跑一個體能訓練，另開會讓原本的收到 `HKE
 
 ### 後端契約
 
+`data.mjs` 接受壓縮上傳：標頭 `X-Body-Encoding: deflate-raw`（App 以 `NSData.compressed(using: .zlib)` 壓縮），
+也收 `deflate`／`gzip`；不帶標頭照舊收純 JSON。**Netlify 函式單次請求上限 6 MB**，
+長場次未壓縮會回 HTTP 413（2026-10-05 一趟 6 小時 36 公里的騎乘即因此定稿上傳失敗）。
+
 `data.mjs` 已接受 `activity` 與 `altitude` 兩個新欄位，且**向下相容**
 （舊版 App 未送 → 空陣列，計數為 0）。`drive-sync.mjs` 會多封存
 `活動類型.json` 與 `高度.json`。
