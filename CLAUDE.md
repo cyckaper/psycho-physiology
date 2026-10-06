@@ -71,7 +71,7 @@
 | `live.mjs` | `/api/live` | 走測即時回報與監看查詢（含 `wo`：手錶上本 App 的體能訓練是否在跑） |
 | `ai-survey.mjs` | `/api/ai-survey` | PDF/Word → AI 解析題目 |
 | `command.mjs` | `/api/command` | 遠端開始／停止。**已退役**，端點暫留以防舊版 App 仍在輪詢 |
-| `drive-sync.mjs` | `/api/drive-sync` | 場次自動封存至 Google Drive |
+| `drive-sync.mjs` | `/api/drive-sync` | 場次自動封存至 Google Drive。專案資料夾名為「專案名稱（代號）」，身分認資料夾 ID（對應存 `heals-drive-folders/projects`），網頁上改專案名稱，Drive 資料夾會就地跟著改；**不要在 Drive 手動改名**，下次封存會被改回登記表的名稱 |
 | `drive-sync-cron.mjs` | 排程 `*/5 * * * *` | 每 5 分鐘觸發 drive-sync |
 | `daily-log.mjs` | `/api/daily-log` | 每日紀錄：彙整某日（台北時間，以場次開始時間歸日）的專案與筆數，存 `heals-daily-log`，並在 Drive「每日紀錄」資料夾寫 CSV |
 | `daily-log-cron.mjs` | 排程 `10 16 * * *` | UTC 16:10＝台北 00:10，彙整昨天並重做前天（接住隔天補傳的心率） |

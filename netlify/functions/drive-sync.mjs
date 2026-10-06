@@ -1,6 +1,6 @@
 // drive-sync.mjs — 場次自動封存 Google Drive /api/drive-sync
 // 掃描 heals-data 全部場次，尚未推送者打包上傳（授權見下）：
-//   Drive 根資料夾（GDRIVE_FOLDER_ID）／專案代號／編號_時間_場次短碼／
+//   Drive 根資料夾（GDRIVE_FOLDER_ID）／專案名稱（代號）／編號_時間_場次短碼／
 //     問卷.json（intake 含 email，＋ema 作答；兩者皆無則不建此檔）
 //     生理.json、軌跡.json、環境.json、活動類型.json、高度.json（空流略過）
 // 已推送清單記在 store: heals-drive-log（key 與場次相同），天生冪等、可重試。
@@ -98,6 +98,54 @@ async function driveEnsureFolder(token, name, parentId, cache) {
   cache.set(ck, id);
   return id;
 }
+async function driveMeta(token, fileId) {
+  const r = await fetch("https://www.googleapis.com/drive/v3/files/" + encodeURIComponent(fileId) + "?fields=id,name,trashed", {
+    headers: { Authorization: "Bearer " + token },
+  });
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error("讀資料夾資訊失敗 HTTP " + r.status);
+  const d = await r.json();
+  return d.trashed ? null : d;
+}
+async function driveRename(token, fileId, name) {
+  const r = await fetch("https://www.googleapis.com/drive/v3/files/" + encodeURIComponent(fileId) + "?fields=id,name", {
+    method: "PATCH",
+    headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (!r.ok) throw new Error("資料夾改名失敗 HTTP " + r.status + "：" + (await r.text()).slice(0, 200));
+}
+
+/* ---- 專案資料夾：名稱用「專案名稱（代號）」，身分認 Drive 資料夾 ID ----
+   以前直接用代號（如「101」）當資料夾名，看不出是哪個專案。改用名稱＋代號後，
+   若仍「依名稱找資料夾」，專案一改名就會另建新資料夾、同一專案的資料被拆成兩處。
+   所以把每個專案對到的資料夾 ID 記在 heals-drive-folders/projects（單一 key），
+   之後一律認 ID；名稱與登記表不一致時就地改名。舊的「代號」資料夾第一次遇到時改名沿用。 */
+function projectFolderName(id, name) {
+  const n = String(name || "").trim();
+  return n && n !== id ? n + "（" + id + "）" : id;
+}
+async function ensureProjectFolder(token, id, want, rootId, folderMap, create) {
+  const cur = folderMap[id];
+  if (cur && cur.folderId) {
+    const meta = await driveMeta(token, cur.folderId);
+    if (meta) {
+      if (meta.name !== want) await driveRename(token, cur.folderId, want);
+      folderMap[id] = { folderId: cur.folderId, name: want };
+      return cur.folderId;
+    }
+    // 資料夾被刪掉或丟進垃圾桶：往下重找
+  }
+  let fid = await driveFindFolder(token, want, rootId);
+  if (!fid) {
+    const legacy = id !== want ? await driveFindFolder(token, id, rootId) : null;
+    if (legacy) { await driveRename(token, legacy, want); fid = legacy; }
+  }
+  if (!fid && create) fid = await driveCreateFolder(token, want, rootId);
+  folderMap[id] = { folderId: fid || null, name: want };   // 沒有資料夾也記下名稱，免得每輪都去 Drive 搜一次
+  return fid;
+}
+
 async function driveUploadJSON(token, name, obj, parentId) {
   const boundary = "heals" + Date.now() + Math.random().toString(36).slice(2, 8);
   const meta = JSON.stringify({ name, parents: [parentId] });
@@ -211,6 +259,21 @@ export default async (req) => {
   }
   pending.sort(); updates.sort();
 
+  // 專案名稱與資料夾對應：名稱變了（或第一次）才需要動 Drive
+  const folderStore = getStore({ name: "heals-drive-folders", consistency: "strong" });
+  let folderMap = {};
+  try { const m = await folderStore.get("projects", { type: "json" }); if (m && typeof m === "object") folderMap = m; } catch (_) {}
+  const folderMapBefore = JSON.stringify(folderMap);
+  const projNames = new Map();
+  try {
+    const reg = await getStore({ name: "heals-projects", consistency: "strong" }).get("registry", { type: "json" });
+    for (const pr of (reg && Array.isArray(reg.projects)) ? reg.projects : []) {
+      if (pr && pr.id) projNames.set(String(pr.id), pr.name || "");
+    }
+  } catch (_) {}
+  const wantName = (id) => projectFolderName(id, projNames.get(id));
+  const renameWork = [...projNames.keys()].filter((id) => !folderMap[id] || folderMap[id].name !== wantName(id));
+
   const url = new URL(req.url);
   const wantProbe = url.searchParams.get("probe");
   const redoKey = url.searchParams.get("redo");
@@ -220,7 +283,7 @@ export default async (req) => {
     return json({ ok: true, redo: redoKey, note: "已清除該場次的記帳；再開本網址（不帶參數）即重新推送" });
   }
 
-  if (!pending.length && !updates.length && !wantProbe) {
+  if (!pending.length && !updates.length && !wantProbe && !renameWork.length) {
     return json({
       ok: true, scanned: allKeys.length, pending: 0, synced: [], inProgress,
       note: "全部定稿場次皆已封存" + (inProgress.length ? "；走測中 " + inProgress.length + " 場定期備份中" : ""),
@@ -265,6 +328,16 @@ export default async (req) => {
     });
   }
 
+  const renamed = [];
+  for (const id of renameWork) {
+    if (Date.now() - started > TIME_BUDGET_MS) break;
+    try {
+      const before = folderMap[id] && folderMap[id].name;
+      const fid = await ensureProjectFolder(token, id, wantName(id), rootId, folderMap, false);
+      if (fid && before !== wantName(id)) renamed.push(id + " → " + wantName(id));
+    } catch (_) { /* 下一輪再試 */ }
+  }
+
   const folderCache = new Map();
   const synced = [], failed = [], skipped = [];
   const work = [
@@ -294,7 +367,8 @@ export default async (req) => {
         sessFolder = prev.folderId;
         folderName = prev.folder || "";
       } else {
-        projFolder = await driveEnsureFolder(token, rec.project || key.split("/")[0], rootId, folderCache);
+        const pid = rec.project || key.split("/")[0];
+        projFolder = await ensureProjectFolder(token, pid, wantName(pid), rootId, folderMap, true);
         folderName = (rec.code || "NA") + "_" + tpeStamp(rec.uploadedAt) + "_" + sess6(rec.session);
         sessFolder = await driveEnsureFolder(token, folderName, projFolder, folderCache);
       }
@@ -338,10 +412,15 @@ export default async (req) => {
     }
   }
 
+  if (JSON.stringify(folderMap) !== folderMapBefore) {
+    try { await folderStore.setJSON("projects", folderMap); } catch (_) {}
+  }
+
   return json({
     ok: true,
     scanned: allKeys.length,
     pending: pending.length + updates.length,
+    renamed,
     synced,
     skipped,
     inProgress,
