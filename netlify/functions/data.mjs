@@ -8,11 +8,12 @@
 // 儲存：Netlify Blobs（store: "heals-data"，key = 專案/編號/場次）。
 import { getStore } from "@netlify/blobs";
 import { summarize } from "../lib/session-summary.mjs";
+import { inflateRawSync, inflateSync, gunzipSync } from "node:zlib";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type, X-Body-Encoding",
 };
 const reply = (obj, status = 200) =>
   new Response(JSON.stringify(obj), {
@@ -27,6 +28,27 @@ const seg = (s, fb = "NA") => {
   return v.length ? v : fb;
 };
 
+// 長場次（數小時、數十公里）的上傳包會超過 Netlify 函式 6 MB 的請求上限，直接回 HTTP 413，
+// 連走測中每 5 分鐘的備份也一起失敗。新版 App 先壓縮再送，以 X-Body-Encoding 標明；
+// 舊版 App 照送純 JSON，兩種都收。JSON 欄位名大量重複，壓縮後通常剩十分之一以下。
+async function readBody(req) {
+  const enc = (req.headers.get("x-body-encoding") || "").trim().toLowerCase();
+  if (!enc) return await req.json();
+  const buf = Buffer.from(await req.arrayBuffer());
+  let raw;
+  if (enc === "deflate-raw") {
+    // Apple 的 NSData.compressed(using: .zlib) 產出不帶表頭的 raw DEFLATE；萬一帶了 zlib 表頭也接得住
+    try { raw = inflateRawSync(buf); } catch (_) { raw = inflateSync(buf); }
+  } else if (enc === "deflate") {
+    raw = inflateSync(buf);
+  } else if (enc === "gzip") {
+    raw = gunzipSync(buf);
+  } else {
+    throw new Error("unsupported encoding");
+  }
+  return JSON.parse(raw.toString("utf8"));
+}
+
 export default async (req) => {
   if (req.method === "OPTIONS") return new Response("", { status: 204, headers: CORS });
 
@@ -38,7 +60,7 @@ export default async (req) => {
   //         ema:[...], activity:[...], altitude:[...] }
   if (req.method === "POST") {
     let body;
-    try { body = await req.json(); } catch { return reply({ error: "invalid json" }, 400); }
+    try { body = await readBody(req); } catch { return reply({ error: "invalid json" }, 400); }
     const project = seg(body.project, "");
     if (!project) return reply({ error: "project required" }, 400);
     const code = seg(body.code);
