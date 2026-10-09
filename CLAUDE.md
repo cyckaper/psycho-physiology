@@ -178,18 +178,23 @@ GDRIVE_SA_KEY              # 舊服務帳戶，已停用但保留
 ### 部署前檢查（必做）
 
 ```bash
-# HTML 內嵌 script 語法檢查
+# HTML 內嵌 script 語法檢查（檔名帶頁名，各頁才不會互相覆蓋）
+rm -f /tmp/_chk*.js
 node -e "
 const fs=require('fs');
 for (const f of ['index.html','project.html','zones.html','survey.html','console.html','live.html','guide.html','daily.html']) {
   const html=fs.readFileSync(f,'utf8');
   [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].forEach((m,i)=>
-    fs.writeFileSync('/tmp/_chk'+i+'.js', m[1]));
+    fs.writeFileSync('/tmp/_chk_'+f.replace('.html','')+'_'+i+'.js', m[1]));
 }"
 for js in /tmp/_chk*.js; do node --check "$js" || exit 1; done
 node --check i18n.js
 for f in netlify/functions/*.mjs netlify/lib/*.mjs; do node --check "$f" || exit 1; done
 ```
+
+舊版把每一頁的第 i 段 script 都寫進同一個 `/tmp/_chk{i}.js`，後一頁蓋掉前一頁，
+實際只驗到清單最後的 `daily.html`，其餘七頁從沒驗過（2026-10-09 發現並修正，當時八頁都通過）。
+目前每頁只有一段不帶屬性的內嵌 `<script>`，其餘 `<script>` 都是 `src` 外部檔，不在檢查範圍。
 
 ### 統計／分析程式碼
 
@@ -305,7 +310,7 @@ Apple Watch 同時只能跑一個體能訓練，另開會讓原本的收到 `HKE
 
 | 優先 | 項目 | 說明 |
 |---|---|---|
-| 高 | TestFlight 上架與十組佈署 | 直裝要逐台接線、開發者模式、手動登記手錶（血淚教訓十一），十組成本高；簽署一年到期。上架前要確認：Watch target 的 Skip Install 設 YES（否則 Archive 變成 generic archive）、隱私清單申報 UserDefaults、`ITSAppUsesNonExemptEncryption = NO`、兩個 target 的 1024 圖示。注意授權條款把內部測試定位在「測試、評估、開發」；測試者一人一個 Apple 帳號 |
+| 高 | TestFlight 上架與十組佈署 | 直裝要逐台接線、開發者模式、手動登記手錶（血淚教訓十一），十組成本高；簽署一年到期。上架前要確認：Watch target 的 Skip Install 設 YES（否則 Archive 變成 generic archive）、手機版以隱私清單（PrivacyInfo.xcprivacy）申報 UserDefaults（CA92.1；手錶版若也用到，要另附一份）、`ITSAppUsesNonExemptEncryption = NO`、兩個 target 的 1024 圖示。注意授權條款把內部測試定位在「測試、評估、開發」；測試者各用自己的 Apple 帳號、不共用，一個帳號最多 30 台裝置 |
 | 高 | 心動農場 006 換機 | iPhone 7（iOS 15）配 Series 7（watchOS 8.8.1）。在 iPhone 7 的「Watch」App 解除配對 → 新手機「設定為新的 Apple Watch」→ 升到 watchOS 26.x。不可逆，配好前別抹除 iPhone 7；今年內完成（watchOS 8.8.1 的裝置啟用憑證 2027-01 到期，拖過之後抹除重配可能卡在啟用） |
 | 中 | 即時心率第二階段：串流直接入庫 | 手錶推來的樣本目前只供監看。若同時寫進生理流，結束後就不必「等 Apple Watch 同步再上傳一次補齊心率」（手冊第五節那套流程可退役） |
 | 中 | 行事曆分級取用 | 規格已定案（三級：忙碌度／時間結構／含標題），需 EventKit 與 Info.plist 權限字串。預設第一級給受測者 |
