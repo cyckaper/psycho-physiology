@@ -81,6 +81,11 @@
 登記進清單簿 `heals-data-index/manifest` 的 `sum`，每日紀錄只讀清單簿即可；
 `sum` 只含時間、筆數與受測編號，**不可放作答內容或 email**。
 
+### 工具（`tools/`，網頁與函式都不讀）
+
+`tools/taipei-parks/`：「台北市大型公園綠地」專案（`taipeiparks`）的反應區與問卷產生腳本、成品與寫入腳本。
+邊界取自 OSM（經 Overture Maps），收錄與排除規則、人工命名判斷都記在該資料夾的 README。
+
 ### 環境變數（Netlify 後台設定，不在 repo）
 
 ```
