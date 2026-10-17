@@ -56,6 +56,7 @@ for r in lu:
     nm = RENAME.get(oid) or nm or NAME_FIX.get(oid)
     if not nm: continue
     nm = nm.strip()
+    if nm.endswith("廣場") or nm.startswith("臺北流行音樂中心"): continue   # 廣場類與流行音樂中心不收（研究者決定，2026-10-17）
     feats.append(dict(oid=oid, name=nm, g=gm, cls=key))
 
 # 同名、相距 ≤ 2*CLOSE_M 的多邊形歸為同一座公園
