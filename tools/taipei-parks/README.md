@@ -16,6 +16,6 @@
 
 ## 寫入平台
 
-`node seed.mjs` 依序寫入反應區、問卷，最後才登記專案（登記後手機端立刻可選，先登記會讓手機抓到空的範圍），寫完回讀核對。專案代號已存在、或後端已有同代號的範圍或問卷時會停止，不覆蓋任何資料。
+`node seed.mjs` 依序寫入反應區、問卷，最後才登記專案（登記後手機端立刻可選，先登記會讓手機抓到空的範圍），寫完回讀核對。專案代號已存在、或後端已有同代號的範圍或問卷時會停止，不覆蓋任何資料。在 Claude Code 雲端環境裡，Node 的 fetch 預設不走代理，要加 `NODE_USE_ENV_PROXY=1 NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt`，且環境的 Network access 要允許 `psycho-physiology.healsdesign.org`。2026-10-17 已以此寫入正式站，回讀與本資料夾的 `zones.geojson`、`survey.json` 完全一致。
 
 不方便從命令列連到站台時，`node make_seed_html.mjs` 產生自含的 `seed.html`，在自己的瀏覽器開啟、按一下即可，流程與保護相同。這一頁對站台是跨來源請求，POST 一律送 `text/plain`：`zones.mjs` 與 `survey.mjs` 的 OPTIONS 預檢回應寫成 `new Response("", { status: 204 })`，在 Node 會拋錯（204 不得帶 body），送 `application/json` 會卡在預檢。
