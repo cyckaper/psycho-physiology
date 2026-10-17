@@ -264,6 +264,11 @@
       var pr = f.properties || {};
       addZone({ zoneId: pr.zoneId, name: pr.name, survey: pr.survey, repeatMinutes: pr.repeatMinutes, latlngs: pts });
     });
+    // seq 要追上既有 z<數字> 的最大號：刪過區再載入時區數比最大號少，新區會撞號（z1,z3,z4,z5 → 又給 z5）
+    zones.forEach(function(z){
+      var m = /^z(\d+)$/.exec(z.zoneId);
+      if(m) seq = Math.max(seq, parseInt(m[1], 10));
+    });
   }
 
   /* ---- 後端 ---- */
