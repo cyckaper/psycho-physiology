@@ -12,7 +12,7 @@
 
 ## 現場問卷
 
-`make_survey.mjs` 產生 `survey.json`，觸發方式為「範圍」，每區每場次跳一次（`repeatMinutes` 0）。前 11 題是 PRS-11（Pasini, Berto, Brondino, Hall & Ortner, 2014, *Procedia – Social and Behavioral Sciences* 159, 293–297），0「完全不符合」到 10「完全符合」，題意採就地作答的 places like this；id 依向度為 `prs_fa*`（迷人性）、`prs_ba*`（遠離性）、`prs_co*`（一致性）、`prs_sc*`（延展性）。後 10 題是 PSS-10（Cohen & Williamson, 1988），參照期間維持原量表的「最近一個月」，0「從不」到 4「非常常」；反向題 id 以 `r` 結尾（`pss04r`、`pss05r`、`pss07r`、`pss08r`），計分時 4 減原值。PSS 做成單選而不是量尺，因為問卷頁的量尺範圍會統一套用到全部量尺題，做成量尺的話，日後在網頁上按一次儲存就會被改成 0–10。中文為工作譯文，正式收案前請以研究室採用的官方中文版逐題覆核。入組問卷未設定。
+`make_survey.mjs` 產生 `survey.json`，觸發方式為「範圍」，每區每場次跳一次（`repeatMinutes` 0），共 17 題。前 6 題是 STAI-6（Marteau & Bekker, 1992, *British Journal of Clinical Psychology* 31, 301–306），即情境焦慮量表（STAI Form Y-1）的六題短版，問「此時此刻」的感受，1「完全沒有」到 4「非常明顯」，量的是走進公園當下的壓力情緒；放在 PRS 之前，免得對環境的評估反過來影響情緒。正向題 id 以 `_r` 結尾（`stai_calm_r`、`stai_relaxed_r`、`stai_content_r`），計分時 5 減原值，六題加總乘以 20/6 即可與完整 STAI 狀態分數（20–80）比較。STAI 做成單選而不是量尺，因為問卷頁的量尺範圍會統一套用到全部量尺題，做成量尺的話，日後在網頁上按一次儲存就會被改成 0–10。STAI 有版權（英文版 Mind Garden，中文版另有出版者），收案前請確認研究室的使用授權。後 11 題是 PRS-11（Pasini, Berto, Brondino, Hall & Ortner, 2014, *Procedia – Social and Behavioral Sciences* 159, 293–297），0「完全不符合」到 10「完全符合」，題意採就地作答的 places like this；id 依向度為 `prs_fa*`（迷人性）、`prs_ba*`（遠離性）、`prs_co*`（一致性）、`prs_sc*`（延展性）。原先的 PSS-10 問「最近一個月」，不適合在每座公園重複作答，依研究者決定刪除（2026-10-17）。中文為工作譯文，正式收案前請以研究室採用的官方中文版逐題覆核。入組問卷未設定。
 
 ## 寫入平台
 

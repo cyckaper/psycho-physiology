@@ -10,10 +10,244 @@
  },
  "ema": {
   "title": {
-   "zh": "公園現場問卷：這個地方給你的感受，以及最近的壓力",
-   "en": "In-park survey: how this place feels to you, and your recent stress"
+   "zh": "公園現場問卷：此刻的感受，以及這個地方給你的感受",
+   "en": "In-park survey: how you feel right now, and how this place feels to you"
   },
   "questions": [
+   {
+    "id": "stai_calm_r",
+    "type": "single",
+    "required": true,
+    "text": {
+     "zh": "此時此刻，我覺得平靜",
+     "en": "Right now, at this moment, I feel calm"
+    },
+    "choices": [
+     {
+      "value": "1",
+      "label": {
+       "zh": "1 完全沒有",
+       "en": "1 Not at all"
+      }
+     },
+     {
+      "value": "2",
+      "label": {
+       "zh": "2 有一些",
+       "en": "2 Somewhat"
+      }
+     },
+     {
+      "value": "3",
+      "label": {
+       "zh": "3 中等程度",
+       "en": "3 Moderately"
+      }
+     },
+     {
+      "value": "4",
+      "label": {
+       "zh": "4 非常明顯",
+       "en": "4 Very much"
+      }
+     }
+    ]
+   },
+   {
+    "id": "stai_tense",
+    "type": "single",
+    "required": true,
+    "text": {
+     "zh": "此時此刻，我覺得緊張",
+     "en": "Right now, at this moment, I am tense"
+    },
+    "choices": [
+     {
+      "value": "1",
+      "label": {
+       "zh": "1 完全沒有",
+       "en": "1 Not at all"
+      }
+     },
+     {
+      "value": "2",
+      "label": {
+       "zh": "2 有一些",
+       "en": "2 Somewhat"
+      }
+     },
+     {
+      "value": "3",
+      "label": {
+       "zh": "3 中等程度",
+       "en": "3 Moderately"
+      }
+     },
+     {
+      "value": "4",
+      "label": {
+       "zh": "4 非常明顯",
+       "en": "4 Very much"
+      }
+     }
+    ]
+   },
+   {
+    "id": "stai_upset",
+    "type": "single",
+    "required": true,
+    "text": {
+     "zh": "此時此刻，我覺得心煩",
+     "en": "Right now, at this moment, I feel upset"
+    },
+    "choices": [
+     {
+      "value": "1",
+      "label": {
+       "zh": "1 完全沒有",
+       "en": "1 Not at all"
+      }
+     },
+     {
+      "value": "2",
+      "label": {
+       "zh": "2 有一些",
+       "en": "2 Somewhat"
+      }
+     },
+     {
+      "value": "3",
+      "label": {
+       "zh": "3 中等程度",
+       "en": "3 Moderately"
+      }
+     },
+     {
+      "value": "4",
+      "label": {
+       "zh": "4 非常明顯",
+       "en": "4 Very much"
+      }
+     }
+    ]
+   },
+   {
+    "id": "stai_relaxed_r",
+    "type": "single",
+    "required": true,
+    "text": {
+     "zh": "此時此刻，我覺得放鬆",
+     "en": "Right now, at this moment, I am relaxed"
+    },
+    "choices": [
+     {
+      "value": "1",
+      "label": {
+       "zh": "1 完全沒有",
+       "en": "1 Not at all"
+      }
+     },
+     {
+      "value": "2",
+      "label": {
+       "zh": "2 有一些",
+       "en": "2 Somewhat"
+      }
+     },
+     {
+      "value": "3",
+      "label": {
+       "zh": "3 中等程度",
+       "en": "3 Moderately"
+      }
+     },
+     {
+      "value": "4",
+      "label": {
+       "zh": "4 非常明顯",
+       "en": "4 Very much"
+      }
+     }
+    ]
+   },
+   {
+    "id": "stai_content_r",
+    "type": "single",
+    "required": true,
+    "text": {
+     "zh": "此時此刻，我覺得滿足",
+     "en": "Right now, at this moment, I feel content"
+    },
+    "choices": [
+     {
+      "value": "1",
+      "label": {
+       "zh": "1 完全沒有",
+       "en": "1 Not at all"
+      }
+     },
+     {
+      "value": "2",
+      "label": {
+       "zh": "2 有一些",
+       "en": "2 Somewhat"
+      }
+     },
+     {
+      "value": "3",
+      "label": {
+       "zh": "3 中等程度",
+       "en": "3 Moderately"
+      }
+     },
+     {
+      "value": "4",
+      "label": {
+       "zh": "4 非常明顯",
+       "en": "4 Very much"
+      }
+     }
+    ]
+   },
+   {
+    "id": "stai_worried",
+    "type": "single",
+    "required": true,
+    "text": {
+     "zh": "此時此刻，我覺得憂慮",
+     "en": "Right now, at this moment, I am worried"
+    },
+    "choices": [
+     {
+      "value": "1",
+      "label": {
+       "zh": "1 完全沒有",
+       "en": "1 Not at all"
+      }
+     },
+     {
+      "value": "2",
+      "label": {
+       "zh": "2 有一些",
+       "en": "2 Somewhat"
+      }
+     },
+     {
+      "value": "3",
+      "label": {
+       "zh": "3 中等程度",
+       "en": "3 Moderately"
+      }
+     },
+     {
+      "value": "4",
+      "label": {
+       "zh": "4 非常明顯",
+       "en": "4 Very much"
+      }
+     }
+    ]
+   },
    {
     "id": "prs_fa1",
     "type": "scale",
@@ -222,466 +456,6 @@
      "zh": "完全符合",
      "en": "Completely"
     }
-   },
-   {
-    "id": "pss01",
-    "type": "single",
-    "required": true,
-    "text": {
-     "zh": "最近一個月，你有多常因為發生意料之外的事而心煩意亂？",
-     "en": "In the last month, how often have you been upset because of something that happened unexpectedly?"
-    },
-    "choices": [
-     {
-      "value": "0",
-      "label": {
-       "zh": "0 從不",
-       "en": "0 Never"
-      }
-     },
-     {
-      "value": "1",
-      "label": {
-       "zh": "1 幾乎不",
-       "en": "1 Almost never"
-      }
-     },
-     {
-      "value": "2",
-      "label": {
-       "zh": "2 有時",
-       "en": "2 Sometimes"
-      }
-     },
-     {
-      "value": "3",
-      "label": {
-       "zh": "3 常常",
-       "en": "3 Fairly often"
-      }
-     },
-     {
-      "value": "4",
-      "label": {
-       "zh": "4 非常常",
-       "en": "4 Very often"
-      }
-     }
-    ]
-   },
-   {
-    "id": "pss02",
-    "type": "single",
-    "required": true,
-    "text": {
-     "zh": "最近一個月，你有多常覺得無法掌控生活中重要的事情？",
-     "en": "In the last month, how often have you felt that you were unable to control the important things in your life?"
-    },
-    "choices": [
-     {
-      "value": "0",
-      "label": {
-       "zh": "0 從不",
-       "en": "0 Never"
-      }
-     },
-     {
-      "value": "1",
-      "label": {
-       "zh": "1 幾乎不",
-       "en": "1 Almost never"
-      }
-     },
-     {
-      "value": "2",
-      "label": {
-       "zh": "2 有時",
-       "en": "2 Sometimes"
-      }
-     },
-     {
-      "value": "3",
-      "label": {
-       "zh": "3 常常",
-       "en": "3 Fairly often"
-      }
-     },
-     {
-      "value": "4",
-      "label": {
-       "zh": "4 非常常",
-       "en": "4 Very often"
-      }
-     }
-    ]
-   },
-   {
-    "id": "pss03",
-    "type": "single",
-    "required": true,
-    "text": {
-     "zh": "最近一個月，你有多常感到緊張和「有壓力」？",
-     "en": "In the last month, how often have you felt nervous and \"stressed\"?"
-    },
-    "choices": [
-     {
-      "value": "0",
-      "label": {
-       "zh": "0 從不",
-       "en": "0 Never"
-      }
-     },
-     {
-      "value": "1",
-      "label": {
-       "zh": "1 幾乎不",
-       "en": "1 Almost never"
-      }
-     },
-     {
-      "value": "2",
-      "label": {
-       "zh": "2 有時",
-       "en": "2 Sometimes"
-      }
-     },
-     {
-      "value": "3",
-      "label": {
-       "zh": "3 常常",
-       "en": "3 Fairly often"
-      }
-     },
-     {
-      "value": "4",
-      "label": {
-       "zh": "4 非常常",
-       "en": "4 Very often"
-      }
-     }
-    ]
-   },
-   {
-    "id": "pss04r",
-    "type": "single",
-    "required": true,
-    "text": {
-     "zh": "最近一個月，你有多常對自己處理個人問題的能力感到有信心？",
-     "en": "In the last month, how often have you felt confident about your ability to handle your personal problems?"
-    },
-    "choices": [
-     {
-      "value": "0",
-      "label": {
-       "zh": "0 從不",
-       "en": "0 Never"
-      }
-     },
-     {
-      "value": "1",
-      "label": {
-       "zh": "1 幾乎不",
-       "en": "1 Almost never"
-      }
-     },
-     {
-      "value": "2",
-      "label": {
-       "zh": "2 有時",
-       "en": "2 Sometimes"
-      }
-     },
-     {
-      "value": "3",
-      "label": {
-       "zh": "3 常常",
-       "en": "3 Fairly often"
-      }
-     },
-     {
-      "value": "4",
-      "label": {
-       "zh": "4 非常常",
-       "en": "4 Very often"
-      }
-     }
-    ]
-   },
-   {
-    "id": "pss05r",
-    "type": "single",
-    "required": true,
-    "text": {
-     "zh": "最近一個月，你有多常覺得事情的發展順著你的意思？",
-     "en": "In the last month, how often have you felt that things were going your way?"
-    },
-    "choices": [
-     {
-      "value": "0",
-      "label": {
-       "zh": "0 從不",
-       "en": "0 Never"
-      }
-     },
-     {
-      "value": "1",
-      "label": {
-       "zh": "1 幾乎不",
-       "en": "1 Almost never"
-      }
-     },
-     {
-      "value": "2",
-      "label": {
-       "zh": "2 有時",
-       "en": "2 Sometimes"
-      }
-     },
-     {
-      "value": "3",
-      "label": {
-       "zh": "3 常常",
-       "en": "3 Fairly often"
-      }
-     },
-     {
-      "value": "4",
-      "label": {
-       "zh": "4 非常常",
-       "en": "4 Very often"
-      }
-     }
-    ]
-   },
-   {
-    "id": "pss06",
-    "type": "single",
-    "required": true,
-    "text": {
-     "zh": "最近一個月，你有多常發現自己無法應付所有必須做的事？",
-     "en": "In the last month, how often have you found that you could not cope with all the things that you had to do?"
-    },
-    "choices": [
-     {
-      "value": "0",
-      "label": {
-       "zh": "0 從不",
-       "en": "0 Never"
-      }
-     },
-     {
-      "value": "1",
-      "label": {
-       "zh": "1 幾乎不",
-       "en": "1 Almost never"
-      }
-     },
-     {
-      "value": "2",
-      "label": {
-       "zh": "2 有時",
-       "en": "2 Sometimes"
-      }
-     },
-     {
-      "value": "3",
-      "label": {
-       "zh": "3 常常",
-       "en": "3 Fairly often"
-      }
-     },
-     {
-      "value": "4",
-      "label": {
-       "zh": "4 非常常",
-       "en": "4 Very often"
-      }
-     }
-    ]
-   },
-   {
-    "id": "pss07r",
-    "type": "single",
-    "required": true,
-    "text": {
-     "zh": "最近一個月，你有多常能夠控制生活中令你惱怒的事？",
-     "en": "In the last month, how often have you been able to control irritations in your life?"
-    },
-    "choices": [
-     {
-      "value": "0",
-      "label": {
-       "zh": "0 從不",
-       "en": "0 Never"
-      }
-     },
-     {
-      "value": "1",
-      "label": {
-       "zh": "1 幾乎不",
-       "en": "1 Almost never"
-      }
-     },
-     {
-      "value": "2",
-      "label": {
-       "zh": "2 有時",
-       "en": "2 Sometimes"
-      }
-     },
-     {
-      "value": "3",
-      "label": {
-       "zh": "3 常常",
-       "en": "3 Fairly often"
-      }
-     },
-     {
-      "value": "4",
-      "label": {
-       "zh": "4 非常常",
-       "en": "4 Very often"
-      }
-     }
-    ]
-   },
-   {
-    "id": "pss08r",
-    "type": "single",
-    "required": true,
-    "text": {
-     "zh": "最近一個月，你有多常覺得自己能掌握一切？",
-     "en": "In the last month, how often have you felt that you were on top of things?"
-    },
-    "choices": [
-     {
-      "value": "0",
-      "label": {
-       "zh": "0 從不",
-       "en": "0 Never"
-      }
-     },
-     {
-      "value": "1",
-      "label": {
-       "zh": "1 幾乎不",
-       "en": "1 Almost never"
-      }
-     },
-     {
-      "value": "2",
-      "label": {
-       "zh": "2 有時",
-       "en": "2 Sometimes"
-      }
-     },
-     {
-      "value": "3",
-      "label": {
-       "zh": "3 常常",
-       "en": "3 Fairly often"
-      }
-     },
-     {
-      "value": "4",
-      "label": {
-       "zh": "4 非常常",
-       "en": "4 Very often"
-      }
-     }
-    ]
-   },
-   {
-    "id": "pss09",
-    "type": "single",
-    "required": true,
-    "text": {
-     "zh": "最近一個月，你有多常因為無法掌控的事情而生氣？",
-     "en": "In the last month, how often have you been angered because of things that were outside of your control?"
-    },
-    "choices": [
-     {
-      "value": "0",
-      "label": {
-       "zh": "0 從不",
-       "en": "0 Never"
-      }
-     },
-     {
-      "value": "1",
-      "label": {
-       "zh": "1 幾乎不",
-       "en": "1 Almost never"
-      }
-     },
-     {
-      "value": "2",
-      "label": {
-       "zh": "2 有時",
-       "en": "2 Sometimes"
-      }
-     },
-     {
-      "value": "3",
-      "label": {
-       "zh": "3 常常",
-       "en": "3 Fairly often"
-      }
-     },
-     {
-      "value": "4",
-      "label": {
-       "zh": "4 非常常",
-       "en": "4 Very often"
-      }
-     }
-    ]
-   },
-   {
-    "id": "pss10",
-    "type": "single",
-    "required": true,
-    "text": {
-     "zh": "最近一個月，你有多常覺得困難堆積如山，多到你無法克服？",
-     "en": "In the last month, how often have you felt difficulties were piling up so high that you could not overcome them?"
-    },
-    "choices": [
-     {
-      "value": "0",
-      "label": {
-       "zh": "0 從不",
-       "en": "0 Never"
-      }
-     },
-     {
-      "value": "1",
-      "label": {
-       "zh": "1 幾乎不",
-       "en": "1 Almost never"
-      }
-     },
-     {
-      "value": "2",
-      "label": {
-       "zh": "2 有時",
-       "en": "2 Sometimes"
-      }
-     },
-     {
-      "value": "3",
-      "label": {
-       "zh": "3 常常",
-       "en": "3 Fairly often"
-      }
-     },
-     {
-      "value": "4",
-      "label": {
-       "zh": "4 非常常",
-       "en": "4 Very often"
-      }
-     }
-    ]
    }
   ]
  }

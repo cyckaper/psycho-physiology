@@ -1,7 +1,9 @@
-// 現場問卷：PRS-11（Pasini et al., 2014；0–10）＋ PSS-10（Cohen & Williamson, 1988；0–4）
+// 現場問卷：STAI-6（Marteau & Bekker, 1992；1–4）＋ PRS-11（Pasini et al., 2014；0–10）
+// STAI-6 是情境焦慮量表（STAI Form Y-1）的六題短版，問「此時此刻」的感受，放在最前面，
+// 先量剛走進來的當下，免得作答 PRS 時對環境的評估反過來影響情緒。
+// STAI 以單選題（1–4 各點皆有標籤）；放單選而非量尺，是因為問卷頁的量尺範圍會統一套用到全部量尺題，
+// 若 STAI 也做成量尺，日後在網頁上按一次儲存就會被改成 0–10。正向題（平靜、放鬆、滿足）id 以 _r 結尾。
 // PRS 以量尺題（0 完全不符合 – 10 完全符合），題意改為就地作答（places like this）。
-// PSS 以單選題（0–4 各點皆有標籤）；放單選而非量尺，是因為問卷頁的量尺範圍會統一套用到全部量尺題，
-// 若 PSS 也做成量尺，日後在網頁上按一次儲存就會被改成 0–10。反向題 id 以 r 結尾（4、5、7、8）。
 import fs from "node:fs";
 
 const L = (zh, en) => ({ zh, en });
@@ -22,28 +24,23 @@ const PRS = [
   prs("prs_sc2", "在像這樣的地方，很少有邊界限制我四處走動", "In places like this there are few boundaries to limit my possibility to move about"),
 ];
 
-const PSS_CHOICES = [
-  { value: "0", label: L("0 從不", "0 Never") },
-  { value: "1", label: L("1 幾乎不", "1 Almost never") },
-  { value: "2", label: L("2 有時", "2 Sometimes") },
-  { value: "3", label: L("3 常常", "3 Fairly often") },
-  { value: "4", label: L("4 非常常", "4 Very often") },
+const STAI_CHOICES = [
+  { value: "1", label: L("1 完全沒有", "1 Not at all") },
+  { value: "2", label: L("2 有一些", "2 Somewhat") },
+  { value: "3", label: L("3 中等程度", "3 Moderately") },
+  { value: "4", label: L("4 非常明顯", "4 Very much") },
 ];
-const pss = (id, zh, en) => ({ id, type: "single", required: true,
-  text: L("最近一個月，你有多常" + zh, "In the last month, how often have you " + en),
-  choices: PSS_CHOICES });
+const stai = (id, zh, en) => ({ id, type: "single", required: true,
+  text: L("此時此刻，" + zh, "Right now, at this moment, " + en),
+  choices: STAI_CHOICES });
 
-const PSS = [
-  pss("pss01",  "因為發生意料之外的事而心煩意亂？", "been upset because of something that happened unexpectedly?"),
-  pss("pss02",  "覺得無法掌控生活中重要的事情？", "felt that you were unable to control the important things in your life?"),
-  pss("pss03",  "感到緊張和「有壓力」？", "felt nervous and \"stressed\"?"),
-  pss("pss04r", "對自己處理個人問題的能力感到有信心？", "felt confident about your ability to handle your personal problems?"),
-  pss("pss05r", "覺得事情的發展順著你的意思？", "felt that things were going your way?"),
-  pss("pss06",  "發現自己無法應付所有必須做的事？", "found that you could not cope with all the things that you had to do?"),
-  pss("pss07r", "能夠控制生活中令你惱怒的事？", "been able to control irritations in your life?"),
-  pss("pss08r", "覺得自己能掌握一切？", "felt that you were on top of things?"),
-  pss("pss09",  "因為無法掌控的事情而生氣？", "been angered because of things that were outside of your control?"),
-  pss("pss10",  "覺得困難堆積如山，多到你無法克服？", "felt difficulties were piling up so high that you could not overcome them?"),
+const STAI = [
+  stai("stai_calm_r",    "我覺得平靜", "I feel calm"),
+  stai("stai_tense",     "我覺得緊張", "I am tense"),
+  stai("stai_upset",     "我覺得心煩", "I feel upset"),
+  stai("stai_relaxed_r", "我覺得放鬆", "I am relaxed"),
+  stai("stai_content_r", "我覺得滿足", "I feel content"),
+  stai("stai_worried",   "我覺得憂慮", "I am worried"),
 ];
 
 const survey = {
@@ -51,9 +48,9 @@ const survey = {
   defaultLang: "zh",
   intake: { title: {}, questions: [] },
   ema: {
-    title: L("公園現場問卷：這個地方給你的感受，以及最近的壓力",
-             "In-park survey: how this place feels to you, and your recent stress"),
-    questions: [...PRS, ...PSS],
+    title: L("公園現場問卷：此刻的感受，以及這個地方給你的感受",
+             "In-park survey: how you feel right now, and how this place feels to you"),
+    questions: [...STAI, ...PRS],
   },
 };
 fs.writeFileSync(new URL("./survey.json", import.meta.url), JSON.stringify(survey, null, 1));

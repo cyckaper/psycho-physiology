@@ -8,7 +8,7 @@ const DIR = new URL(".", import.meta.url);
 const PROJECT = {
   id: "taipeiparks",
   name: "台北市大型公園綠地",
-  note: "反應區：臺北市界內面積 ≥ 1 公頃的公園綠地 171 座（173 區），邊界取自 OpenStreetMap（Overture Maps 2026-09-23.1）。現場問卷：PRS-11＋PSS-10。",
+  note: "反應區：臺北市界內面積 ≥ 1 公頃的公園綠地 171 座（173 區），邊界取自 OpenStreetMap（Overture Maps 2026-09-23.1）。現場問卷：STAI-6＋PRS-11。",
   status: "active",
   trigger: { mode: "zone" },
 };

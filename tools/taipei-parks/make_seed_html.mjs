@@ -22,7 +22,7 @@ pre{background:#fffdf7;border:1px solid #e7ddc6;border-radius:10px;padding:12px;
 a{color:#2c6b5f}
 </style></head><body><div class="wrap">
 <h1>建立「台北市大型公園綠地」專案</h1>
-<p>按下按鈕後，會在 <b id="base"></b> 依序寫入 180 個反應區、現場問卷（PRS-11＋PSS-10，共 21 題），最後登記專案 <code>taipeiparks</code>（進行中、範圍觸發）。</p>
+<p>按下按鈕後，會在 <b id="base"></b> 依序寫入 ${JSON.parse(gj).features.length} 個反應區、現場問卷（STAI-6＋PRS-11，共 ${JSON.parse(sv).ema.questions.length} 題），最後登記專案 <code>taipeiparks</code>（進行中、範圍觸發）。</p>
 <p>專案代號已存在、或後端已有同代號的範圍／問卷時會自動停止，不覆蓋任何資料；重複按也安全。</p>
 <button id="go">建立專案</button>
 <pre id="log"></pre>
