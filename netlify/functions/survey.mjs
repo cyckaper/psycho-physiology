@@ -133,7 +133,7 @@ function sanitizeLangs(langs, def) {
 const EMPTY_FORM = { title: {}, questions: [] };
 
 export default async (req) => {
-  if (req.method === "OPTIONS") return new Response("", { status: 204, headers: CORS });
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
 
   const store = getStore({ name: "heals-surveys", consistency: "strong" });
   const url = new URL(req.url);

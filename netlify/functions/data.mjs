@@ -50,7 +50,7 @@ async function readBody(req) {
 }
 
 export default async (req) => {
-  if (req.method === "OPTIONS") return new Response("", { status: 204, headers: CORS });
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
 
   const store = getStore({ name: "heals-data", consistency: "strong" });
   const url = new URL(req.url);

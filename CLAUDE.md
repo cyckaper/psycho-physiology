@@ -171,6 +171,14 @@ GDRIVE_SA_KEY              # 舊服務帳戶，已停用但保留
    同名的另一支錶（好幾支都叫「…的 Apple Watch」），接著又因沒做 Clean Build Folder 而遇到 0xe8008017。
    手錶連 Xcode 在校園網路常卡在「Timed out while attempting to establish tunnel」，不必等它。
 
+12. **回 204 的 `Response`，body 一定要寫 `null`，不能寫 `""`**
+   Netlify 函式跑在 Node 上，Node 內建的 `Response`（undici）照 Fetch 規格，204／205／304 只要帶 body
+   就丟 `TypeError: Response constructor: Invalid response status code 204`，空字串也算 body。
+   OPTIONS 預檢因此一進來就丟錯，函式回 500 且不帶 CORS 標頭，瀏覽器所有需要預檢的跨站請求
+   （別的網站或本機 HTML 檔以 `Content-Type: application/json` POST）全被擋下。本站網頁同源、
+   iOS App 不送預檢，所以一直沒人察覺；`zones`／`survey`／`data`／`command` 四支到 2026-10-17 才改正。
+   一律寫 `new Response(null, { status: 204, headers })`；`node -e 'new Response("", {status:204})'` 一跑就能重現。
+
 ---
 
 ## 五、開發慣例
