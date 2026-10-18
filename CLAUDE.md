@@ -19,7 +19,7 @@
 | 層 | 內容 | 位置 |
 |---|---|---|
 | 網頁後台 | 專案設定、反應區、問卷、資料主控台、即時監看 | **本 repo** |
-| iPhone App | HealthProbe，受測者執行與記錄 | Xcode 專案，**不在本 repo** |
+| iPhone App | HealthProbe，受測者執行與記錄 | 私人 repo `cyckaper/HealthProbe`，**不在本 repo** |
 | Apple Watch | 心率來源，全程零設定，由手機操控 | 同上 |
 
 ---
@@ -152,7 +152,8 @@ GDRIVE_SA_KEY              # 舊服務帳戶，已停用但保留
    手錶端被頂掉時手機按「結束」手錶就收不到，走測停不下來。
 
 10. **Swift 檔一律以檔案取代，不要從預覽複製貼上**
-   預覽畫面會吃掉字串插值 `\(` 的反斜線，引號跟著錯位，整支檔案的括號全亂，
+   （2026-10-17 起 App 原始碼進了私人 repo `cyckaper/HealthProbe`，改動走 PR、Jake 用 GitHub Desktop 拉，
+   不再手動換檔；以下留作背景。）預覽畫面會吃掉字串插值 `\(` 的反斜線，引號跟著錯位，整支檔案的括號全亂，
    Xcode 報一長串「Expected '}'」與連帶的「找不到成員」。取代時在 Xcode 對檔案右鍵
    「Show in Finder」，確定換的是它實際編譯的那一份。另外，左側問題清單會留著上一次建置的
    舊錯誤（常是灰色圖示），換完檔要清除建置資料夾重建一次才會更新，別對著舊錯誤除錯。
@@ -246,7 +247,9 @@ for f in netlify/functions/*.mjs netlify/lib/*.mjs; do node --check "$f" || exit
 
 ## 七、iOS 端現況（不在本 repo，但後端契約相關）
 
-Xcode 專案在 Jake 的 Mac：`~/Desktop/HealthProbe/`
+原始碼在私人 repo `cyckaper/HealthProbe`（2026-10-17 建立），App 端的檔案地圖、執行期機制、App 端教訓與待辦都在該 repo 的 CLAUDE.md。
+Jake 的工作副本在 `~/Developer/HealthProbe/`，用 GitHub Desktop 同步；原本放在開了 iCloud 同步的桌面，
+冒出過「PhysiologyModels 2.swift」這類同步衝突副本，所以搬出來。不要再放回桌面、文件或 iCloud Drive。
 Bundle ID `org.healsdesign.HealthProbe`（手錶 `org.healsdesign.HealthProbe.watchkitapp`，包在手機版內，見血淚教訓八），Team ID `494F396377`
 （＝Apple Accounts 裡的 `Chun-Yen Chang`／Admin 那個；另一個 Sales 團隊簽不了，見血淚教訓七）
 
@@ -310,7 +313,8 @@ Apple Watch 同時只能跑一個體能訓練，另開會讓原本的收到 `HKE
 
 | 優先 | 項目 | 說明 |
 |---|---|---|
-| 高 | TestFlight 上架與十組佈署 | 直裝要逐台接線、開發者模式、手動登記手錶（血淚教訓十一），十組成本高；簽署一年到期。上架前要確認：Watch target 的 Skip Install 設 YES（否則 Archive 變成 generic archive）、手機版以隱私清單（PrivacyInfo.xcprivacy）申報 UserDefaults（CA92.1；手錶版若也用到，要另附一份）、`ITSAppUsesNonExemptEncryption = NO`、兩個 target 的 1024 圖示。注意授權條款把內部測試定位在「測試、評估、開發」；測試者各用自己的 Apple 帳號、不共用，一個帳號最多 30 台裝置 |
+| 高 | TestFlight 上架與十組佈署 | 直裝要逐台接線、開發者模式、手動登記手錶（血淚教訓十一），十組成本高；簽署一年到期。上架前要補：手機版以隱私清單（PrivacyInfo.xcprivacy）申報 UserDefaults（CA92.1；手錶版若也用到，要另附一份）、`ITSAppUsesNonExemptEncryption = NO`、手機圖示去掉 alpha 通道（兩張都是 RGBA 但完全不透明，另存 RGB 畫面不變）；Watch target 的 Skip Install＝YES 已設好（2026-10-17 查證）。細節見 HealthProbe repo CLAUDE.md 第八節。注意授權條款把內部測試定位在「測試、評估、開發」；測試者各用自己的 Apple 帳號、不共用，一個帳號最多 30 台裝置 |
+| 高 | App 事件與環境座標修正待實走驗證 | 2026-10-17 讀 App 原始碼發現：事件的 `gpsLat`／`gpsLng`、進區環境與環境流都取自走測中不會更新的 `LocationManager`，可能停在上次開 App 的位置。2026-10-18 App 端改用觸發點與軌跡最新一點（cyckaper/HealthProbe#2），尚未建置實走。在那之前上傳的場次座標仍是舊的：軌跡、反應區判定與 `/api/live` 不受影響，主控台也不讀事件座標，但環境流會進脈絡分析，跨區走測時環境值可能是別處的。驗收步驟與舊資料處理見 HealthProbe CLAUDE.md 第八節「座標修正待實走驗證」，驗收後兩邊一起刪 |
 | 高 | 心動農場 006 換機 | iPhone 7（iOS 15）配 Series 7（watchOS 8.8.1）。在 iPhone 7 的「Watch」App 解除配對 → 新手機「設定為新的 Apple Watch」→ 升到 watchOS 26.x。不可逆，配好前別抹除 iPhone 7；今年內完成（watchOS 8.8.1 的裝置啟用憑證 2027-01 到期，拖過之後抹除重配可能卡在啟用） |
 | 中 | 即時心率第二階段：串流直接入庫 | 手錶推來的樣本目前只供監看。若同時寫進生理流，結束後就不必「等 Apple Watch 同步再上傳一次補齊心率」（手冊第五節那套流程可退役） |
 | 中 | 行事曆分級取用 | 規格已定案（三級：忙碌度／時間結構／含標題），需 EventKit 與 Info.plist 權限字串。預設第一級給受測者 |
