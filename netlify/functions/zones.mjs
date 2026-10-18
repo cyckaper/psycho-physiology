@@ -5,8 +5,7 @@
 //
 // 格式：GeoJSON FeatureCollection，與 HEALS hub contract 的邊界格式一致。
 //   Feature.geometry = Polygon，coordinates = [[ [lng,lat], ... , [lng,lat] ]]（注意是 lng,lat）
-//   Feature.properties = { zoneId, name, survey, repeatMinutes, dwellMinutes }
-//   dwellMinutes：體驗時間。在區內累計滿這麼多分鐘才跳問卷；0（或舊資料沒有這欄）＝一進入就跳。
+//   Feature.properties = { zoneId, name, survey, repeatMinutes }
 import { getStore } from "@netlify/blobs";
 
 const CORS = {
@@ -49,7 +48,6 @@ function sanitize(geojson) {
         name: String(pr.name ?? `區域 ${features.length + 1}`),
         survey: String(pr.survey ?? ""),
         repeatMinutes: Number.isFinite(Number(pr.repeatMinutes)) ? Number(pr.repeatMinutes) : 0,
-        dwellMinutes: Number.isFinite(Number(pr.dwellMinutes)) ? Math.min(240, Math.max(0, Math.round(Number(pr.dwellMinutes)))) : 0,
       },
     });
   }
