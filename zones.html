@@ -101,7 +101,7 @@
   var PALETTE = ["#5b7a45","#2c6b5f","#b8694a","#7a6a2e","#4a6b8a","#8a4a6b","#3f5a2f","#a1743a"];
   var PROJ = (new URLSearchParams(location.search).get("project") || "").trim();
 
-  var zones = [];          // { zoneId, name, survey, repeatMinutes, latlngs:[[lat,lng]...], layer }
+  var zones = [];          // { zoneId, name, survey, repeatMinutes, dwellMinutes, latlngs:[[lat,lng]...], layer }
   var seq = 0;
   var map, drawing = false, pending = [], pendMarkers = [], pendLine = null;
 
@@ -170,6 +170,7 @@
       name: (preset && preset.name) || ("區域 " + seq),
       survey: (preset && preset.survey) || "",
       repeatMinutes: (preset && Number(preset.repeatMinutes)) || 0,
+      dwellMinutes: (preset && Number(preset.dwellMinutes)) || 0,
       latlngs: preset.latlngs,
       color: PALETTE[(seq - 1) % PALETTE.length],
       layer: null
@@ -207,6 +208,7 @@
           '<input type="text" class="n-name" value="' + escapeAttr(z.name) + '" placeholder="區域名稱">' +
         '</div>' +
         '<div class="zgrid">' +
+          '<div class="fld"><div class="lbl">體驗時間（分鐘，在區內待滿才跳問卷；0＝一進入就跳；新版 App 才生效）</div><input type="number" class="n-dwell" min="0" max="240" step="1" value="' + Number(z.dwellMinutes) + '"></div>' +
           '<div class="fld"><div class="lbl">重複間隔（分鐘，0＝每場只跳一次）</div><input type="number" class="n-rep" min="0" step="1" value="' + Number(z.repeatMinutes) + '"></div>' +
         '</div>' +
         '<div class="zacts">' +
@@ -216,6 +218,9 @@
 
       card.querySelector(".n-name").addEventListener("input", function(e){
         z.name = e.target.value; if(z.layer) z.layer.bindTooltip(z.name);
+      });
+      card.querySelector(".n-dwell").addEventListener("input", function(e){
+        var v = parseInt(e.target.value, 10); z.dwellMinutes = isNaN(v) || v < 0 ? 0 : Math.min(v, 240);
       });
       card.querySelector(".n-rep").addEventListener("input", function(e){
         var v = parseInt(e.target.value, 10); z.repeatMinutes = isNaN(v) || v < 0 ? 0 : v;
@@ -245,7 +250,7 @@
         return {
           type: "Feature",
           geometry: { type: "Polygon", coordinates: [ring] },
-          properties: { zoneId: z.zoneId, name: z.name, survey: z.survey, repeatMinutes: z.repeatMinutes }
+          properties: { zoneId: z.zoneId, name: z.name, survey: z.survey, repeatMinutes: z.repeatMinutes, dwellMinutes: z.dwellMinutes }
         };
       })
     };
@@ -262,7 +267,7 @@
       var a = pts[0], b = pts[pts.length - 1];
       if(a[0] === b[0] && a[1] === b[1]) pts.pop();                       // 去掉閉合重複點
       var pr = f.properties || {};
-      addZone({ zoneId: pr.zoneId, name: pr.name, survey: pr.survey, repeatMinutes: pr.repeatMinutes, latlngs: pts });
+      addZone({ zoneId: pr.zoneId, name: pr.name, survey: pr.survey, repeatMinutes: pr.repeatMinutes, dwellMinutes: pr.dwellMinutes, latlngs: pts });
     });
   }
 
