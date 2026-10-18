@@ -13,6 +13,7 @@ CLOSE_M = 12               # 同名公園被窄路切開時，以 ±12 m 閉合�
 CLOSE_M_MAX = 16
 SIMPLIFY_M = 1.5           # 頂點簡化容許誤差（遠小於 GPS 誤差）
 MIN_PART_M2 = 2000         # 合併後仍分離的碎片，小於此面積略去
+REPEAT_MIN = 15            # 進區即跳一次，之後在區內每 15 分鐘再跳（研究者決定，2026-10-18）
 
 divs = pq.read_table("data/divisions.parquet").to_pylist()
 tpe = transform(TO_M, shapely.wkb.loads([r for r in divs if r["subtype"]=="region" and r["region"]=="TW-TPE"][0]["geometry"]))
@@ -132,7 +133,7 @@ for i, z in enumerate(zones_raw, 1):
     if ring[0] != ring[-1]: ring.append(ring[0][:])
     features.append({"type": "Feature",
         "geometry": {"type": "Polygon", "coordinates": [ring]},
-        "properties": {"zoneId": f"tp{i:03d}", "name": z["label"], "survey": "", "repeatMinutes": 0}})
+        "properties": {"zoneId": f"tp{i:03d}", "name": z["label"], "survey": "", "repeatMinutes": REPEAT_MIN}})
 gj = {"type": "FeatureCollection", "features": features}
 json.dump(gj, open("zones.geojson", "w"), ensure_ascii=False, separators=(",", ":"))
 meta = [dict(zoneId=f["properties"]["zoneId"], name=f["properties"]["name"], district=z["dist"],
