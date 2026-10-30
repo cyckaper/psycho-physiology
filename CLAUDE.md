@@ -53,7 +53,7 @@
 | `project.html` | 專案樞紐：1 設定 → 2 範圍 → 3 問卷 → 4 資料 |
 | `zones.html` | 反應區設定（Leaflet 畫多邊形，存 GeoJSON） |
 | `survey.html` | 問卷設計，可上傳 PDF/Word 由 AI 解析題目 |
-| `console.html` | **資料主控台**。場次對接、Excel 匯出、Drive 存檔、脈絡分析、點層級分析、模型診斷 |
+| `console.html` | **資料主控台**。場次對接、Excel／JSON／PDF 匯出、Drive 存檔、脈絡分析、點層級分析、模型診斷 |
 | `live.html` | 即時監看地圖 |
 | `daily.html` | 每日紀錄：逐日列出有走測的專案、各場次與六條流筆數；今天為即時彙整 |
 | `guide.html` | 操作手冊。中英雙語，內文兩語寫在頁內、靠 `body.en` 擇一顯示（長篇不進 `i18n.js` 共用字典，那份字典每頁都同步載入） |
@@ -80,6 +80,16 @@
 `session-summary.mjs` 算場次摘要（開始／結束時間、各流筆數）。`data.mjs` 上傳時把摘要
 登記進清單簿 `heals-data-index/manifest` 的 `sum`，每日紀錄只讀清單簿即可；
 `sum` 只含時間、筆數與受測編號，**不可放作答內容或 email**。
+
+### 與 zoning8circulation 的銜接
+
+`console.html` 的「產出 JSON」與「產出 PDF 報告」是給 zoning8circulation（分區與動線規劃，私人 repo
+`cyckaper/zoning8circulation`）「參考資料匯入 → 讀人｜心生理與體驗實證報告」讀的。那邊把檔案轉成純文字、
+**只取前 12000 字**交給 AI 整理成判準，所以報告順序固定是結論 → 解讀限制 → 場次 → 逐點資料，
+長的東西不要往前搬。PDF 走瀏覽器列印而不用前端 PDF 函式庫：中文字型才嵌得進去、文字才抽得出來，
+圖片化的 PDF 那邊讀不到。JSON 是 GeoJSON FeatureCollection，`report` 為附加成員，
+`features` 的屬性由 `exportRow()` 產生、與 Excel 欄位同一份。報告裡的統計一律呼叫畫面上同一批函式
+（`pointLevelStats()`、`modeShares()`、`diagnoseVar()`、脈絡分析的 `lastCtx`），不要另算一套。
 
 ### 環境變數（Netlify 後台設定，不在 repo）
 
@@ -318,6 +328,8 @@ Apple Watch 同時只能跑一個體能訓練，另開會讓原本的收到 `HKE
 | 高 | 心動農場 006 換機 | iPhone 7（iOS 15）配 Series 7（watchOS 8.8.1）。在 iPhone 7 的「Watch」App 解除配對 → 新手機「設定為新的 Apple Watch」→ 升到 watchOS 26.x。不可逆，配好前別抹除 iPhone 7；今年內完成（watchOS 8.8.1 的裝置啟用憑證 2027-01 到期，拖過之後抹除重配可能卡在啟用） |
 | 中 | 即時心率第二階段：串流直接入庫 | 手錶推來的樣本目前只供監看。若同時寫進生理流，結束後就不必「等 Apple Watch 同步再上傳一次補齊心率」（手冊第五節那套流程可退役） |
 | 中 | 行事曆分級取用 | 規格已定案（三級：忙碌度／時間結構／含標題），需 EventKit 與 Info.plist 權限字串。預設第一級給受測者 |
+| 中 | zoning8circulation 的點位圖層讀不到本站 Excel | 它的「讀人｜體驗資料（帶座標）」只讀第一個分頁，本站 Excel 第一頁是「總覽 Summary」，沒有經緯度，會報找不到座標；長格式的「數值 Value」也混了心率與其他指標，直接分區平均沒有意義。較乾淨的做法是在那邊改接本站 JSON 的 `features`（篩 `heart_rate`） |
+| 中 | 點層級的區塊 r 未控制速度與晝夜 | `pointLevelStats()` 的區塊相關用原始值，但方法說明稱「三者以區塊結果最值得採信」、判定文字寫「控制速度與晝夜後的區塊相關」。合成資料裡純雜訊的濕度曾得出不涵蓋 0 的區塊 CI（控制後 r = −0.05、p = .86）。JSON／PDF 報告已標「未控制」；要嘛改成先殘差化再切區塊，要嘛改說明與判定文字。改了要以合成資料實跑驗證 |
 | 低 | 資料站改用實測活動類型 | 等有一筆帶 `activity` 欄位的資料回來再做 |
 | 低 | 主控台改用 App 送來的 `speedMps` | `motionStats()` 目前以 haversine 從座標相減推算速度，與 iOS 端「一律取 CoreLocation 原生值」的原則不一致；`altitudeM`／`courseDeg` 也尚未讀用 |
 | 低 | 相關分析的時間加權 | 目前只有顯示做了時間加權，計算仍是點權重。待看實際取樣密度分布再決定，貿然加權可能引入新假設 |

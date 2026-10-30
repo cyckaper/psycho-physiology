@@ -283,6 +283,10 @@ body.en [data-lang="zh"]{display:none}
 <h3><span data-lang="zh">匯出與封存</span><span data-lang="en">Export and archiving</span></h3>
 <p data-lang="zh"><b>產出專案 Excel</b>：每人一分頁。<b>存到 Google Drive</b>：也可手動觸發，但場次上傳後系統本來就會<b>每 5 分鐘</b>自動封存一次，按專案代號與場次分資料夾。</p>
 <p data-lang="en"><b>Export project Excel</b>: one sheet per participant. <b>Save to Google Drive</b>: available manually, though sessions are archived automatically <b>every 5 minutes</b> anyway, foldered by project code and session.</p>
+<p data-lang="zh"><b>產出 JSON</b>：一個檔案裝兩樣東西。前段是「讀人報告」（各場次摘要、點層級分析結果、解讀限制），後段是每一筆對接到 GPS 的生理樣本，欄位與 Excel 完全相同。整份是 GeoJSON，QGIS 等 GIS 軟體可直接開。<b>產出 PDF 報告</b>：開新視窗排好報告（含走測路線圖）並叫出列印，目的地選「儲存為 PDF」即可。兩者都依當下的時間容差與 GPS 精度設定產出；回溯天氣要等脈絡分析表格出現後才會納入。</p>
+<p data-lang="en"><b>Export JSON</b>: one file holding two things. The first part is the Reading People report (session summaries, point-level results, limits on interpretation); the second is every physiological sample matched to GPS, with exactly the same fields as the Excel. The whole file is GeoJSON, so GIS software such as QGIS opens it directly. <b>Export PDF report</b>: opens the report (with a route map) in a new window and brings up printing; choose “Save as PDF”. Both use the current time-tolerance and GPS-accuracy settings; retrospective weather is included only once the context table has appeared.</p>
+<p data-lang="zh">要接到 <b>zoning8circulation</b>（分區與動線規劃）時，把 PDF 或 JSON 拖入它「參考資料匯入」的「讀人｜心生理與體驗實證報告」。那邊只讀前 12000 字交給 AI 整理成判準，所以報告把結論與解讀限制放在最前面。</p>
+<p data-lang="en">To bring the results into <b>zoning8circulation</b> (zoning and circulation planning), drop the PDF or JSON onto “People｜Psycho-physiological evidence report” under its Reference Data step. It reads only the first 12,000 characters for its AI summary, so the report puts conclusions and limits first.</p>
 
 <div class="note">
   <p data-lang="zh"><b>Excel 的欄位名固定中英並陳</b>（例如 <code>氣溫 AirTemp (°C)</code>），<b>不隨介面語言改變</b>。這是刻意的：跨檔、跨國合併時，欄位鍵必須唯一，不能因為匯出時介面是英文就變成另一個名字。</p>
