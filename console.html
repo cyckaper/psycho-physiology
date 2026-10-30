@@ -131,7 +131,7 @@
 <div class="wrap">
   <header>
     <h1><span>HEALS</span><span class="zh" data-i18n="console.title">專案資料主控台</span></h1><span id="langSlot" style="float:right"></span>
-    <p class="sub" data-i18n="console.sub">一個專案、多位參與者（各一編號＝一組配對的 Apple Watch＋iPhone）。開頁自動抓回本專案所有已上傳場次，依時間對接出帶 GPS 的資料，全員疊在地圖上，可產出專案 Excel（每人一分頁）或存到 Google Drive。</p>
+    <p class="sub" data-i18n="console.sub">一個專案、多位參與者（各一編號＝一組配對的 Apple Watch＋iPhone）。開頁自動抓回本專案所有已上傳場次，依時間對接出帶 GPS 的資料，全員疊在地圖上，可產出專案 Excel（每人一分頁）、JSON（含逐點資料與分析結論）、PDF 報告，或存到 Google Drive。</p>
   </header>
   <div class="rule"></div>
 
@@ -140,6 +140,8 @@
     <span class="chip" id="projChip">—</span>
     <span style="flex:1"></span>
     <button class="btn" id="btnExport" data-i18n="console.export">產出專案 Excel</button>
+    <button class="btn ghost" id="btnJson" data-i18n="console.exportJson">產出 JSON</button>
+    <button class="btn ghost" id="btnPdf" data-i18n="console.exportPdf">產出 PDF 報告</button>
     <button class="btn ghost" id="btnDrive" data-i18n="console.drive">存到 Google Drive</button>
   </div>
   <div class="stnav" id="stnav" style="display:none">
@@ -304,7 +306,7 @@ async function fetchFromBackend(){
     .sort((a,b)=>b.uploadedAt-a.uploadedAt);
   if(!list.length){note.textContent="「"+proj+"」"+TT("console.emptyAll");return;}
   clearParticipants();
-  list.forEach(g=>addParticipant({label:g.code+"·"+shortSession(g.session),phys:g.phys,track:g.track,env:g.env}));
+  list.forEach(g=>addParticipant({label:g.code+"·"+shortSession(g.session),code:g.code,phys:g.phys,track:g.track,env:g.env}));
   refresh();
   const sessCount=new Set(list.map(g=>g.session)).size;
   note.textContent=TT("console.loaded1")+" "+list.length+" "+TT("console.loaded2")+" "+sessCount+" "+TT("console.loaded3");
@@ -314,7 +316,7 @@ async function fetchFromBackend(){
 /* ---- 參與者卡片 ---- */
 function addParticipant(preset){
   const uid="p"+(++seq);
-  const p={uid,label:(preset&&preset.label)||("#"+seq),phys:(preset&&preset.phys)||[],track:(preset&&preset.track)||[],env:(preset&&preset.env)||[],color:PALETTE[(seq-1)%PALETTE.length],visible:true};
+  const p={uid,label:(preset&&preset.label)||("#"+seq),code:(preset&&preset.code)||null,phys:(preset&&preset.phys)||[],track:(preset&&preset.track)||[],env:(preset&&preset.env)||[],color:PALETTE[(seq-1)%PALETTE.length],visible:true};
   participants.push(p);
   const card=document.createElement("div");card.className="pcard swatchbar";card.style.borderTopColor=p.color;
   card.innerHTML=`
@@ -444,16 +446,10 @@ function renderStats(tol,acc){
   else{n.style.display="block";n.textContent="只有成功對接到 GPS 座標的生理樣本會進地圖與 Excel;落在容差外或精度不足者已排除。環境欄取最近 15 分鐘內的快照。";}
 }
 
-/* ---- 組出 workbook（下載與上傳共用）---- */
-function buildWorkbook(){
-  if(typeof XLSX==="undefined"){alert("Excel 函式庫尚未載入,請稍候再試。");return null;}
-  const tol=+$("#tol").value, acc=+$("#acc").value;
-  const wb=XLSX.utils.book_new(); const summary=[]; const used=new Set();
-  participants.forEach(p=>{
-    if(!p.phys.length||!p.track.length)return;
-    const {rows}=joinParticipant(p,tol,acc);
-    // 欄位名固定中英並陳，不隨介面語言改變——跨檔合併時欄位鍵才唯一
-    const data=rows.map(r=>({
+/* ---- 一筆對接資料的匯出欄位（Excel 分頁與 JSON 的 features 共用）----
+   欄位名固定中英並陳，不隨介面語言改變——跨檔合併時欄位鍵才唯一 */
+function exportRow(p,r){
+  return {
       "編號 Code":p.label,"時間 Time (Taipei)":fmtLocal(r.time),
       "指標 Metric":r.metricType,"數值 Value":r.value,"單位 Unit":r.unit||"",
       "緯度 Lat":r.lat,"經度 Lng":r.lng,"精度 Accuracy (m)":round(r.acc,1),
@@ -462,7 +458,18 @@ function buildWorkbook(){
       "濕度 Humidity (%)":r.env?r.env.humidityPct:"","空氣品質 AQI":r.env?r.env.usAqi:"",
       "PM2.5 (µg/m³)":r.env?r.env.pm25:"","PM10 (µg/m³)":r.env?r.env.pm10:"",
       "風速 WindSpeed (m/s)":r.env?r.env.windSpeedMs:"","天氣 Weather":r.env?r.env.weatherDesc:""
-    }));
+  };
+}
+
+/* ---- 組出 workbook（下載與上傳共用）---- */
+function buildWorkbook(){
+  if(typeof XLSX==="undefined"){alert("Excel 函式庫尚未載入,請稍候再試。");return null;}
+  const tol=+$("#tol").value, acc=+$("#acc").value;
+  const wb=XLSX.utils.book_new(); const summary=[]; const used=new Set();
+  participants.forEach(p=>{
+    if(!p.phys.length||!p.track.length)return;
+    const {rows}=joinParticipant(p,tol,acc);
+    const data=rows.map(r=>exportRow(p,r));
     let nm=(p.label||"裝置").replace(/[\[\]\*\?\/\\:]/g,"_").slice(0,28)||"裝置";
     let base=nm,k=2;while(used.has(nm)){nm=(base.slice(0,26)+"_"+k);k++;}used.add(nm);
     XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data.length?data:[
@@ -481,10 +488,10 @@ function buildWorkbook(){
   wb.SheetNames.unshift(wb.SheetNames.pop());
   return wb;
 }
-function projectFileName(){
+function projectFileName(ext){
   const name=(PROJ_NAME||PROJ||"專案").replace(/[^\w\u4e00-\u9fa5-]/g,"_").slice(0,40);
-  const ts=new Date().toISOString().replace(/[-:T]/g,"").slice(0,15);
-  return `${name}_${ts}.xlsx`;
+  const ts=new Date().toISOString().replace(/[-:T]/g,"").slice(0,14);
+  return `${name}_${ts}.${ext||"xlsx"}`;
 }
 
 /* ---- 產出 Excel（下載）---- */
@@ -510,6 +517,7 @@ function refresh(){
    同一地點同一天只查一次，避免重複請求。
 ==================================================================== */
 const ctxCache = new Map();
+let lastCtx = null;   // 最近一次脈絡分析的各場次結果（含回溯天氣），供報告輸出
 
 function haversineKm(a,b){
   const R=6371, toR=d=>d*Math.PI/180;
@@ -1073,8 +1081,8 @@ function classifyModes(ds){
   return ds;
 }
 
-function renderModeSummary(ds){
-  const total=ds.length;
+/* 各模式的點數與時間（秒）：畫面長條與報告輸出共用 */
+function modeShares(ds){
   const counts={}, secs={};
   // 心率取樣間隔並不均勻：運動中約 5 秒一筆，靜止時稀疏。
   // 只看點數佔比會讓密集取樣的時段（通常是運動）被大幅放大，
@@ -1088,6 +1096,11 @@ function renderModeSummary(ds){
     secs[o.mode]=(secs[o.mode]||0)+w;
   });
   const totalSec=Object.values(secs).reduce((a,b)=>a+b,0)||1;
+  return {total:ds.length, counts, secs, totalSec};
+}
+
+function renderModeSummary(ds){
+  const {total,counts,secs,totalSec}=modeShares(ds);
   const present=MODE_DEFS.filter(m=>counts[m.key]);
   if(present.length<=1) return "";
 
@@ -1183,6 +1196,36 @@ function renderModelAdvice(ds, tauHR){
   return html+'<div class="methods" style="margin-top:10px">'+advice+'</div>';
 }
 
+/* 點層級逐變項統計：畫面表格與報告輸出共用同一份計算，兩邊的數字才不會分岔 */
+function pointLevelStats(ds){
+  const ts=ds.map(d=>d.t), hr=ds.map(d=>d.hr), spd=ds.map(d=>d.speed);
+  const hourSin=ds.map(d=>Math.sin(d.hour/24*2*Math.PI));
+  const hourCos=ds.map(d=>Math.cos(d.hour/24*2*Math.PI));
+  const tauHR=decorrelationTimeSec(ts,hr);
+  const vars=PT_DEFS.map(d=>{
+    const xs=ds.map(o=>o[d.key]);
+    const pr=pearson(xs,hr);
+    if(!pr) return {def:d, pr:null};
+    // 控制速度＋晝夜。時刻是環形變數（23 點之後回到 0 點），
+    // 以線性項控制不了；必須拆成 sin/cos 兩個分量才洗得掉晝夜節律。
+    let pa=null;
+    if(d.key!=="speed"){
+      const ctrl=[];
+      if(d.key!=="speed") ctrl.push(spd);
+      if(d.key!=="hour")  { ctrl.push(hourSin, hourCos); }
+      const rx=residualize(xs, ctrl), ry=residualize(hr, ctrl);
+      if(rx&&ry){ const pp=pearson(rx,ry); if(pp) pa=pp.r; }
+    }
+    const tauX=decorrelationTimeSec(ts,xs);
+    const tau=Math.max(tauHR||0, tauX||0) || null;
+    const nEff=effectiveNTime(ts,tau,pr.n);
+    const pv=pFromR(pa!=null?pa:pr.r, nEff);
+    const bc=blockCorrelation(ts,xs,hr,tau);
+    return {def:d, pr, pa, tau, nEff, pv, bc};
+  });
+  return {tauHR, vars};
+}
+
 function renderPointLevel(){
   const sel=$("#ptSession");
   const idx=sel? +sel.value : 0;
@@ -1204,10 +1247,8 @@ function renderPointLevel(){
            '（n = '+ds.length+'）</p>';
 
   const ts=ds.map(d=>d.t), hr=ds.map(d=>d.hr), spd=ds.map(d=>d.speed);
-  const hourSin=ds.map(d=>Math.sin(d.hour/24*2*Math.PI));
-  const hourCos=ds.map(d=>Math.cos(d.hour/24*2*Math.PI));
   const spanMin=(ts[ts.length-1]-ts[0])/60000;
-  const tauHR=decorrelationTimeSec(ts,hr);
+  const {tauHR, vars}=pointLevelStats(ds);
   const prHRspd=pearson(spd,hr);
   const medGap=(()=>{ const g=[]; for(let i=1;i<ts.length;i++) g.push((ts[i]-ts[i-1])/1000);
     g.sort((a,b)=>a-b); return g.length?g[Math.floor(g.length/2)]:null; })();
@@ -1240,28 +1281,13 @@ function renderPointLevel(){
     '</tr></thead><tbody>';
 
   const cls=v=>Math.abs(v)>=0.3?(v>0?"up":"down"):"flat";
-  for(const d of PT_DEFS){
-    const xs=ds.map(o=>o[d.key]);
-    const pr=pearson(xs,hr);
-    if(!pr){
+  for(const v of vars){
+    const d=v.def;
+    if(!v.pr){
       html+='<tr><td>'+d.label+'</td>'+'<td class="num flat">—</td>'.repeat(6)+'</tr>';
       continue;
     }
-    // 控制速度＋晝夜。時刻是環形變數（23 點之後回到 0 點），
-    // 以線性項控制不了；必須拆成 sin/cos 兩個分量才洗得掉晝夜節律。
-    let pa=null;
-    if(d.key!=="speed"){
-      const ctrl=[];
-      if(d.key!=="speed") ctrl.push(spd);
-      if(d.key!=="hour")  { ctrl.push(hourSin, hourCos); }
-      const rx=residualize(xs, ctrl), ry=residualize(hr, ctrl);
-      if(rx&&ry){ const pp=pearson(rx,ry); if(pp) pa=pp.r; }
-    }
-    const tauX=decorrelationTimeSec(ts,xs);
-    const tau=Math.max(tauHR||0, tauX||0) || null;
-    const nEff=effectiveNTime(ts,tau,pr.n);
-    const pv=pFromR(pa!=null?pa:pr.r, nEff);
-    const bc=blockCorrelation(ts,xs,hr,tau);
+    const {pr,pa,tau,nEff,pv,bc}=v;
 
     html+='<tr><td>'+d.label+
       '<br><span class="flat" style="font-size:11.5px">'+d.cat+'</span></td>'+
@@ -1391,7 +1417,7 @@ async function analyzeContext(){
         }
       }catch(e){ /* 單筆失敗不影響其他場次 */ }
     }
-    rows.push({label:p.label||"—", t:a.t, now, dT, dP, spark, hr, along, spanKm,
+    rows.push({uid:p.uid, label:p.label||"—", t:a.t, now, dT, dP, spark, hr, along, spanKm,
                motion: motionStats(p), envm: envMeans(p),
                mins: a.endT&&a.t ? Math.round((a.endT-a.t)/60000) : null});
   }
@@ -1419,13 +1445,339 @@ async function analyzeContext(){
   }
   html+='</tbody></table>';
   body.innerHTML=html;
+  lastCtx = rows;   // 報告輸出取用；尚未查完時報告會註明未納入
   const ok = rows.filter(r=>r.now).length;
   st.textContent=TT("ctx.analysed1")+" "+rows.length+" "+TT("ctx.analysed2")+(ok<rows.length?("（"+(rows.length-ok)+" "+TT("ctx.noWeather")+"）"):"");
+}
+
+/* ===== 讀人報告：JSON 與 PDF ==========================================
+   給 zoning8circulation（分區與動線規劃）「參考資料匯入」的
+   「讀人｜心生理與體驗實證報告」讀取。那邊把 PDF／JSON 轉成純文字、
+   只取前 12000 字交給 AI 整理成判準，所以結論與解讀限制放最前面，
+   逐點資料放最後。JSON 整份是 GeoJSON FeatureCollection（report 為附加成員），
+   GIS 軟體可直接開；features 的屬性與 Excel 欄位完全相同。
+   數字一律來自畫面上同一批函式，不另算一套。
+==================================================================== */
+const rnd=(x,n)=>(x==null||!isFinite(x))?null:Math.round(x*10**n)/10**n;
+const escH=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+/* 帶參數的翻譯：字典字串裡的 {name} 以 vars 取代 */
+function TF(k,vars,fb){ return TT(k,fb).replace(/\{(\w+)\}/g,(m,n)=>vars[n]!=null?vars[n]:m); }
+const sgn=(v,dp)=>v==null?"—":(v>0?"+":"")+v.toFixed(dp);
+const pTxt=v=>{ const f=fmtP(v); return f==="—"?"p —":(f[0]==="<"?"p "+f:"p = "+f); };
+
+/* 單一場次的報告條目 */
+function sessionReport(p,tol,acc){
+  const a=sessionAnchor(p), ms=motionStats(p);
+  const hs=basicStats((p.phys||[]).filter(s=>String(s.metricType)==="heart_rate").map(s=>+s.value));
+  const em=envMeans(p), onSite={};
+  Object.keys(em).forEach(k=>{ if(em[k]!=null) onSite[k]=rnd(em[k],1); });
+  const durationMin=a&&a.endT?Math.round((a.endT-a.t)/60000):null;
+  const o={label:p.label, code:p.code,
+    start:a?fmtLocal(a.t):null, end:a&&a.endT?fmtLocal(a.endT):null, durationMin,
+    distanceKm:ms?rnd(ms.distKm,2):null, meanSpeedKmh:ms?rnd(ms.speedKmh,1):null,
+    trackPoints:p.track.length,
+    gpsMatched:(p.phys.length&&p.track.length)?joinParticipant(p,tol,acc).rows.length:0,
+    hr:hs?{n:hs.n, mean:rnd(hs.mean,1), sd:rnd(hs.sd,1), min:hs.lo, max:hs.hi}:null,
+    onSite:Object.keys(onSite).length?onSite:null,
+    weather:null, modeTimePct:null, warnings:[], pointLevel:null};
+
+  // 回溯天氣：沿用脈絡分析表的同一筆結果（起點當下值；跨區時另附沿途範圍，氣壓為海平面值）
+  const w=(lastCtx||[]).find(r=>r.uid===p.uid);
+  if(w&&w.now){
+    o.weather={tempC:rnd(w.now.temp,1), dTemp24hC:rnd(w.dT,1), pressureHpa:rnd(w.now.pres,0),
+               dPressure24hHpa:rnd(w.dP,1), rhPct:rnd(w.now.rh,0)};
+    if(w.along){
+      o.weather.alongTempC=[rnd(w.along.tMin,1),rnd(w.along.tMax,1)];
+      o.weather.alongMslHpa=[rnd(w.along.mMin,0),rnd(w.along.mMax,0)];
+    }
+  }
+
+  // 點層級：與畫面「全部模式」同一套計算；超過 12 小時的場次不可分析
+  const all=classifyModes(pointDataset(p,tol,acc));
+  const spanMin=all.length>1?Math.round((all[all.length-1].t-all[0].t)/60000):0;
+  if((durationMin!=null&&durationMin>720)||spanMin>720) o.warnings.push("notEnded");
+  if(all.length){
+    const m=modeShares(all); o.modeTimePct={};
+    MODE_DEFS.forEach(d=>{ if(m.counts[d.key]) o.modeTimePct[d.label]=Math.round((m.secs[d.key]||0)/m.totalSec*100); });
+  }
+  if(o.warnings.includes("notEnded")) o.pointLevel={skipped:"notEnded", n:all.length, spanMin};
+  else if(all.length<30)              o.pointLevel={skipped:"tooFew", n:all.length, spanMin};
+  else{
+    const st=pointLevelStats(all);
+    const hr=all.map(x=>x.hr), spd=all.map(x=>x.speed), el=all.map(x=>x.elapsedMin);
+    o.pointLevel={n:all.length, spanMin, tauHRSec:rnd(st.tauHR,0), variables:[]};
+    st.vars.forEach(v=>{
+      if(!v.pr) return;
+      const dg=diagnoseVar(all,v.def.key,hr,spd,el,st.tauHR);
+      o.pointLevel.variables.push({variable:v.def.label, r:rnd(v.pr.r,3), n:v.pr.n,
+        rControlled:rnd(v.pa,3), p:(v.pv!=null&&isFinite(v.pv))?+v.pv.toPrecision(3):null,
+        nEff:v.nEff, tauSec:rnd(v.tau,0),
+        blockR:v.bc?{mean:rnd(v.bc.mean,3), ci95:[rnd(v.bc.lo,3),rnd(v.bc.hi,3)], k:v.bc.k}:null,
+        verdict:dg.code, verdictText:TT(VERDICT[dg.code].key,""), caution:!!dg.caution});
+    });
+  }
+  return o;
+}
+
+/* 一個變項的結果寫成一句：控制後 r 與 p，加上區塊 r 的區間是否涵蓋 0 */
+function varSentence(v){
+  let s=v.variable+" "+(v.rControlled!=null?TF("rep.rCtl",{r:sgn(v.rControlled,2)}):"r = "+sgn(v.r,2))+TT("rep.comma",", ")+pTxt(v.p);
+  if(v.blockR){
+    const b=v.blockR, out=b.ci95[0]>0||b.ci95[1]<0;
+    s+=TT("rep.sepClause","; ")+TF(out?"rep.blockOut":"rep.blockIn",{r:sgn(b.mean,2),lo:b.ci95[0].toFixed(2),hi:b.ci95[1].toFixed(2)});
+  }
+  return s;
+}
+
+function buildReport(){
+  const tol=+$("#tol").value, acc=+$("#acc").value;
+  const exp=participants.filter(p=>p.phys.length&&p.track.length);   // 與 Excel 同一批
+  if(!exp.length){ alert(TT("rep.none","尚無可輸出的資料")); return null; }
+  const features=[]; let hrMatched=0, w=Infinity, s=Infinity, e=-Infinity, n=-Infinity;
+  exp.forEach(p=>{
+    joinParticipant(p,tol,acc).rows.forEach(r=>{
+      features.push({type:"Feature", geometry:{type:"Point", coordinates:[r.lng,r.lat]}, properties:exportRow(p,r)});
+      if(String(r.metricType)==="heart_rate") hrMatched++;
+      if(r.lng<w)w=r.lng; if(r.lng>e)e=r.lng; if(r.lat<s)s=r.lat; if(r.lat>n)n=r.lat;
+    });
+  });
+  const ps=participants.filter(p=>p.track.length||p.phys.length);
+  const sessions=ps.map(p=>sessionReport(p,tol,acc))
+    .sort((x,y)=>String(x.start||"").localeCompare(String(y.start||"")));
+  const starts=sessions.map(x=>x.start).filter(Boolean).sort(), ends=sessions.map(x=>x.end).filter(Boolean).sort();
+  const overview={sessions:ps.length, codes:new Set(ps.map(p=>p.code||p.label)).size,
+    gpsMatchedSamples:features.length, gpsMatchedHR:hrMatched,
+    from:starts[0]||null, to:ends[ends.length-1]||null,
+    bbox:features.length?[rnd(w,5),rnd(s,5),rnd(e,5),rnd(n,5)]:null};
+
+  const findings=[TF("rep.fOverview",{s:overview.sessions, c:overview.codes,
+    m:features.length.toLocaleString(), h:hrMatched.toLocaleString(), from:overview.from||"—", to:overview.to||"—"})];
+  sessions.forEach(x=>{
+    const pl=x.pointLevel;
+    if(x.warnings.includes("notEnded")){
+      findings.push(TF("rep.fNotEnded",{label:x.label, h:Math.round(Math.max(x.durationMin||0,pl.spanMin||0)/60)}));
+      return;
+    }
+    if(!pl||pl.skipped) return;
+    const modes=Object.entries(x.modeTimePct||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+" "+v+"%").join(TT("rep.sepList",", "));
+    const use=pl.variables.filter(v=>v.verdict==="block"||v.verdict==="blockWeak");
+    findings.push(use.length
+      ? TF("rep.fUsable",{label:x.label, modes, list:use.map(varSentence).join(TT("rep.sepClause","; "))})
+      : TF("rep.fNoUsable",{label:x.label, modes}));
+  });
+  const caveats=["rep.cav1","rep.cav2","rep.cav3","rep.cav4","rep.cav5"].map(k=>TT(k,""));
+  if(!lastCtx) caveats.push(TT("rep.weatherPending",""));
+
+  let lang="zh"; try{ if(window.I18N) lang=I18N.lang; }catch(_){}
+  const rep={source:"讀人 Reading People · psycho-physiology.healsdesign.org", kind:"people-report",
+    schemaVersion:1, language:lang, project:{code:PROJ||null, name:PROJ_NAME||null},
+    generatedAt:fmtLocal(Date.now())+" (Asia/Taipei)", matching:{toleranceSec:tol, maxAccuracyM:acc},
+    overview, findings, caveats, sessions};
+  return {rep, features, exp, tol, acc};
+}
+
+/* 頂層每鍵一行、陣列每項一行：打開檔案讀得懂，又不讓縮排吃掉 12000 字的額度 */
+function reportJSONText(rep){
+  return "{\n"+Object.entries(rep).map(([k,v])=>" "+JSON.stringify(k)+":"+
+    (Array.isArray(v)&&v.length ? "[\n  "+v.map(x=>JSON.stringify(x)).join(",\n  ")+"\n ]" : JSON.stringify(v))
+  ).join(",\n")+"\n}";
+}
+
+function downloadBlob(blob,name){
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+}
+
+/* ---- 產出 JSON（下載）---- */
+function exportJSON(){
+  const b=buildReport(); if(!b) return;
+  const txt='{"type":"FeatureCollection",\n"report":'+reportJSONText(b.rep)+',\n"features":[\n'+
+    b.features.map(f=>JSON.stringify(f)).join(",\n")+"\n]}\n";
+  downloadBlob(new Blob([txt],{type:"application/json"}), "HEALS-"+projectFileName("json"));
+}
+
+/* 靜態地圖：OSM 圖磚拼貼＋SVG 疊軌跡與對接點。不用 Leaflet，列印時才不會缺磚或錯位 */
+function reportMapHTML(exp,tol,acc){
+  const W=680, H=400, PAD=24, TS=256;
+  const groups=exp.map(p=>({p, ...joinParticipant(p,tol,acc)})).filter(g=>g.track.length||g.rows.length);
+  let s=Infinity, n=-Infinity, w=Infinity, e=-Infinity;
+  groups.forEach(g=>[...g.track,...g.rows].forEach(q=>{
+    if(q.lat<s)s=q.lat; if(q.lat>n)n=q.lat; if(q.lng<w)w=q.lng; if(q.lng>e)e=q.lng; }));
+  if(!isFinite(s)) return "";
+  const px=(lat,lng,z)=>{ const k=TS*2**z, sl=Math.sin(lat*Math.PI/180);
+    return [(lng+180)/360*k, (0.5-Math.log((1+sl)/(1-sl))/(4*Math.PI))*k]; };
+  let z=17;
+  for(;z>1;z--){ const a=px(n,w,z), b=px(s,e,z); if(b[0]-a[0]<=W-2*PAD && b[1]-a[1]<=H-2*PAD) break; }
+  const a=px(n,w,z), b=px(s,e,z), N=2**z;
+  const ox=(a[0]+b[0])/2-W/2, oy=(a[1]+b[1])/2-H/2;
+  let tiles="";
+  for(let tx=Math.floor(ox/TS); tx<=Math.floor((ox+W)/TS); tx++)
+    for(let ty=Math.floor(oy/TS); ty<=Math.floor((oy+H)/TS); ty++){
+      if(ty<0||ty>=N) continue;
+      tiles+='<img alt="" src="https://tile.openstreetmap.org/'+z+'/'+(((tx%N)+N)%N)+'/'+ty+'.png" '+
+             'style="left:'+Math.round(tx*TS-ox)+'px;top:'+Math.round(ty*TS-oy)+'px">';
+    }
+  const xy=(lat,lng)=>{ const q=px(lat,lng,z); return [(q[0]-ox).toFixed(1),(q[1]-oy).toFixed(1)]; };
+  const thin=(arr,max)=>{ if(arr.length<=max) return arr; const st=Math.ceil(arr.length/max); return arr.filter((_,i)=>i%st===0); };
+  let svg="";
+  groups.forEach(g=>{
+    if(g.track.length>1) svg+='<polyline points="'+thin(g.track,1500).map(q=>xy(q.lat,q.lng).join(",")).join(" ")+
+      '" fill="none" stroke="'+g.p.color+'" stroke-width="2" stroke-opacity=".55" stroke-linejoin="round"/>';
+    thin(g.rows,1200).forEach(r=>{ const [x,y]=xy(r.lat,r.lng);
+      svg+='<circle cx="'+x+'" cy="'+y+'" r="2.4" fill="'+g.p.color+'" fill-opacity=".85" stroke="#5a5230" stroke-width=".4"/>'; });
+  });
+  // 比例尺：取不超過圖寬四分之一的整數距離
+  const mpp=156543.03392*Math.cos((s+n)/2*Math.PI/180)/N;
+  const len=[10,20,50,100,200,500,1000,2000,5000,10000,20000,50000,100000].filter(m=>m/mpp<=W/4).pop()||10;
+  const bw=(len/mpp).toFixed(1);
+  svg+='<g transform="translate(14,'+(H-12)+')"><rect x="-6" y="-18" width="'+(+bw+12)+'" height="24" fill="#fff" fill-opacity=".8"/>'+
+       '<line x1="0" y1="0" x2="'+bw+'" y2="0" stroke="#33352a" stroke-width="2"/>'+
+       '<text x="0" y="-6" font-size="10" fill="#33352a">'+(len>=1000?len/1000+" km":len+" m")+'</text></g>';
+  return '<div class="map" style="width:'+W+'px;height:'+H+'px">'+tiles+
+    '<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'">'+svg+'</svg>'+
+    '<span class="attr">© OpenStreetMap contributors</span></div>'+
+    '<div class="lgd">'+groups.map(g=>'<span><i style="background:'+g.p.color+'"></i>'+escH(g.p.label)+'</span>').join("")+'</div>';
+}
+
+const REPORT_CSS=
+  '@page{size:A4;margin:14mm 12mm}'+
+  'body{margin:0;background:#fff;color:#33352a;font-family:"Noto Serif TC",serif;font-size:10.5pt;line-height:1.6;'+
+    '-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+  '.bar{position:sticky;top:0;z-index:5;background:#faf6ea;border-bottom:1px solid #e2d9bf;padding:10px 16px;'+
+    'display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:13px}'+
+  '.bar button{font:inherit;font-weight:700;color:#fff;background:#5f7048;border:1px solid #46552f;border-radius:8px;padding:7px 14px;cursor:pointer}'+
+  '.wrap{max-width:186mm;margin:0 auto;padding:16px}'+
+  'h1{font-size:18pt;color:#46552f;margin:4px 0 6px}'+
+  'h2{font-size:12.5pt;color:#46552f;border-bottom:1px solid #e2d9bf;padding-bottom:3px;margin:18px 0 8px;break-after:avoid}'+
+  'h3{font-size:11pt;margin:14px 0 4px;break-after:avoid}'+
+  'ul{margin:4px 0 8px 20px;padding:0}li{margin:2px 0}'+
+  'table{width:100%;border-collapse:collapse;font-size:8.8pt;margin:4px 0 8px}'+
+  'th{background:#f3eee0;color:#3f5a2f;text-align:left;padding:4px 5px;border-bottom:1px solid #e7ddc6;vertical-align:bottom}'+
+  'td{padding:4px 5px;border-bottom:1px solid #f0ead8;vertical-align:top}'+
+  'tr{break-inside:avoid}td.n{font-variant-numeric:tabular-nums;white-space:nowrap}'+
+  'table.kv th{width:24%;background:none;color:#6b6f5a;font-weight:400;vertical-align:top}'+
+  '.note{font-size:9pt;color:#6b6f5a;margin:2px 0 6px}.warn{color:#b8694a;font-weight:700}'+
+  '.keep{break-inside:avoid}'+
+  '.map{position:relative;overflow:hidden;border:1px solid #e2d9bf;border-radius:6px;background:#eef0e6;margin:6px 0 4px}'+
+  '.map img{position:absolute;width:256px;height:256px;max-width:none}.map svg{position:absolute;left:0;top:0}'+
+  '.map .attr{position:absolute;right:4px;bottom:2px;font-size:8px;background:rgba(255,255,255,.75);padding:0 3px}'+
+  '.lgd{font-size:9pt;display:flex;flex-wrap:wrap;gap:4px 14px;margin:2px 0 6px}'+
+  '.lgd i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}'+
+  '.methods h4{font-size:10pt;color:#3f5a2f;margin:10px 0 2px}.methods p{margin:0 0 5px}'+
+  '@media print{.bar{display:none}.wrap{max-width:none;padding:0}}';
+
+function durTxt(mins){
+  if(mins==null) return "—";
+  const h=mins/60;
+  return h>=48 ? (h/24).toFixed(1)+" "+TT("ctx.day","天")
+       : (h>=2 ? h.toFixed(1)+" "+TT("ctx.hour","小時") : mins+" "+TT("ctx.min","分"));
+}
+
+function reportHTML(b){
+  const rep=b.rep, ov=rep.overview, ss=rep.sessions;
+  const th=k=>'<th>'+escH(TT(k))+'</th>';
+  const li=arr=>'<ul>'+arr.map(x=>'<li>'+escH(x)+'</li>').join("")+'</ul>';
+  const nf=(v,dp,u)=>v==null?"—":v.toFixed(dp)+(u||"");
+  let h='<!DOCTYPE html><html lang="'+(rep.language==="en"?"en":"zh-Hant")+'"><head><meta charset="utf-8">'+
+    '<meta name="viewport" content="width=device-width, initial-scale=1">'+
+    '<title>'+escH("HEALS-"+projectFileName("pdf").replace(/\.pdf$/,""))+'</title>'+
+    '<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">'+
+    '<style>'+REPORT_CSS+'</style></head><body>'+
+    '<div class="bar"><button type="button" onclick="window.print()">'+escH(TT("rep.print"))+'</button>'+
+    '<span>'+escH(TT("rep.printHint"))+'</span></div><div class="wrap">';
+
+  h+='<h1>'+escH(TT("rep.title"))+'</h1><table class="kv">'+
+    '<tr><th>'+escH(TT("rep.project"))+'</th><td>'+escH(rep.project.name?TF("rep.projName",{name:rep.project.name,code:rep.project.code}):rep.project.code||"—")+'</td></tr>'+
+    '<tr><th>'+escH(TT("rep.generated"))+'</th><td>'+escH(rep.generatedAt)+'</td></tr>'+
+    '<tr><th>'+escH(TT("rep.matching"))+'</th><td>'+escH(TF("rep.matchTxt",{tol:rep.matching.toleranceSec,acc:rep.matching.maxAccuracyM}))+'</td></tr>'+
+    '<tr><th>'+escH(TT("rep.source"))+'</th><td>'+escH(rep.source)+'</td></tr></table>';
+
+  h+='<h2>'+escH(TT("rep.secFindings"))+'</h2>'+li(rep.findings);
+  h+='<h2>'+escH(TT("rep.secCaveats"))+'</h2>'+li(rep.caveats);
+
+  h+='<h2>'+escH(TT("rep.secOverview"))+'</h2><table class="kv">'+
+    '<tr><th>'+escH(TT("rep.nSessions"))+'</th><td>'+ov.sessions+'</td></tr>'+
+    '<tr><th>'+escH(TT("rep.nCodes"))+'</th><td>'+ov.codes+'</td></tr>'+
+    '<tr><th>'+escH(TT("rep.nMatched"))+'</th><td>'+escH(TF("rep.nMatchedTxt",{m:ov.gpsMatchedSamples.toLocaleString(),h:ov.gpsMatchedHR.toLocaleString()}))+'</td></tr>'+
+    '<tr><th>'+escH(TT("rep.period"))+'</th><td>'+escH((ov.from||"—")+" – "+(ov.to||"—"))+'</td></tr>'+
+    '<tr><th>'+escH(TT("rep.bbox"))+'</th><td>'+escH(ov.bbox?ov.bbox.join(", "):"—")+'</td></tr></table>';
+
+  const mapHtml=reportMapHTML(b.exp,b.tol,b.acc);
+  if(mapHtml) h+='<div class="keep"><h2>'+escH(TT("rep.secMap"))+'</h2>'+mapHtml+'<p class="note">'+escH(TT("rep.mapNote"))+'</p></div>';
+
+  h+='<h2>'+escH(TT("rep.secSessions"))+'</h2><table><thead><tr>'+th("ctx.colSession")+th("rep.colStart")+th("ctx.colDur")+
+    th("rep.colDist")+th("ctx.colHR")+th("rep.colMatched")+th("rep.colOnSite")+th("rep.colModes")+th("rep.colNote")+'</tr></thead><tbody>';
+  ss.forEach(x=>{
+    const os=x.onSite||{};
+    h+='<tr><td>'+escH(x.label)+'</td><td class="n">'+escH(x.start?x.start.slice(5,16):"—")+'</td><td class="n">'+escH(durTxt(x.durationMin))+'</td>'+
+      '<td class="n">'+nf(x.distanceKm,2," km")+'<br>'+nf(x.meanSpeedKmh,1," km/h")+'</td>'+
+      '<td class="n">'+(x.hr?x.hr.mean.toFixed(0)+(x.hr.sd!=null?" ± "+x.hr.sd.toFixed(0):"")+" bpm<br>n = "+x.hr.n.toLocaleString():"—")+'</td>'+
+      '<td class="n">'+x.gpsMatched.toLocaleString()+'</td>'+
+      '<td class="n">'+nf(os.airTempC,1," °C")+'<br>AQI '+nf(os.usAqi,0)+'</td>'+
+      '<td>'+escH(Object.entries(x.modeTimePct||{}).sort((p,q)=>q[1]-p[1]).map(([k,v])=>k+" "+v+"%").join(TT("rep.sepList",", "))||"—")+'</td>'+
+      '<td>'+(x.warnings.includes("notEnded")?'<span class="warn">⚠ '+escH(TT("ctx.notEnded"))+'</span>':"")+'</td></tr>';
+  });
+  h+='</tbody></table>';
+
+  h+='<h2>'+escH(TT("ctx.title"))+'</h2>';
+  if(!lastCtx) h+='<p class="note">'+escH(TT("rep.weatherPending"))+'</p>';
+  else{
+    h+='<table><thead><tr>'+th("ctx.colSession")+th("ctx.colTemp")+th("ctx.colDTemp")+th("ctx.colPres")+th("ctx.colDPres")+th("ctx.colRH")+'</tr></thead><tbody>';
+    ss.forEach(x=>{
+      const wx=x.weather; if(!wx) return;
+      const t=wx.alongTempC&&wx.alongTempC[0]!=null ? wx.alongTempC[0].toFixed(1)+"–"+wx.alongTempC[1].toFixed(1)+" °C"+TF("rep.paren",{x:TT("rep.along")}) : nf(wx.tempC,1," °C");
+      const pr=wx.alongMslHpa&&wx.alongMslHpa[0]!=null ? wx.alongMslHpa[0]+"–"+wx.alongMslHpa[1]+" hPa"+TF("rep.paren",{x:TT("ctx.mslLabel")}) : nf(wx.pressureHpa,0," hPa");
+      h+='<tr><td>'+escH(x.label)+'</td><td class="n">'+escH(t)+'</td><td class="n">'+sgn(wx.dTemp24hC,1)+'</td>'+
+        '<td class="n">'+escH(pr)+'</td><td class="n">'+sgn(wx.dPressure24hHpa,1)+'</td><td class="n">'+nf(wx.rhPct,0,"%")+'</td></tr>';
+    });
+    h+='</tbody></table>';
+  }
+
+  h+='<h2>'+escH(TT("pt.title"))+'</h2>';
+  ss.forEach(x=>{
+    const pl=x.pointLevel; if(!pl) return;
+    h+='<h3>'+escH(x.label)+'</h3>';
+    if(pl.skipped){ h+='<p class="note">'+escH(pl.skipped==="notEnded"?TT("rep.ptNotEnded"):TF("rep.ptTooFew",{n:pl.n}))+'</p>'; return; }
+    h+='<p class="note">'+escH(TT("pt.meta"))+' n = '+pl.n.toLocaleString()+'　・　'+escH(TT("pt.span"))+' '+pl.spanMin+' '+escH(TT("ctx.min"))+
+      (pl.tauHRSec!=null?'　・　'+escH(TT("pt.tau"))+' ≈ '+pl.tauHRSec+' s':'')+'</p>';
+    h+='<table><thead><tr>'+th("inv.colVar")+'<th>r</th>'+th("pt.partial")+'<th>τ</th><th>n<sub>eff</sub></th><th>p</th>'+
+      th("pt.blockCI")+th("md.colVerdict")+'</tr></thead><tbody>';
+    pl.variables.forEach(v=>{
+      h+='<tr><td>'+escH(v.variable)+'</td><td class="n">'+sgn(v.r,2)+'<br>n = '+v.n.toLocaleString()+'</td>'+
+        '<td class="n">'+sgn(v.rControlled,2)+'</td><td class="n">'+(v.tauSec!=null?v.tauSec+" s":"—")+'</td>'+
+        '<td class="n">'+v.nEff.toLocaleString()+'</td><td class="n">'+escH(fmtP(v.p))+'</td>'+
+        '<td class="n">'+(v.blockR?sgn(v.blockR.mean,2)+'<br>['+v.blockR.ci95[0].toFixed(2)+', '+v.blockR.ci95[1].toFixed(2)+']　k = '+v.blockR.k:"—")+'</td>'+
+        '<td>'+escH(v.verdictText)+(v.caution?'<br><span class="warn">⚠ '+escH(TT("md.caution"))+'</span>':'')+'</td></tr>';
+    });
+    h+='</tbody></table>';
+  });
+
+  h+='<h2>'+escH(TT("methods.title"))+'</h2><div class="methods">'+TT("methods.body","")+'</div>';
+  h+='<p class="note" style="margin-top:16px">'+escH(TT("rep.footer"))+'</p></div></body></html>';
+  return h;
+}
+
+/* ---- 產出 PDF：開新視窗排好報告，交給瀏覽器「列印→儲存為 PDF」----
+   用瀏覽器列印而非前端 PDF 函式庫：中文字型才嵌得進去，文字也抽得出來
+  （zoning8circulation 用 pdf.js 抽文字，圖片化的 PDF 它讀不到） */
+function exportPDF(){
+  const b=buildReport(); if(!b) return;
+  const w=window.open("","_blank");
+  if(!w){ alert(TT("rep.popup","瀏覽器擋下了報告視窗")); return; }
+  w.document.open(); w.document.write(reportHTML(b)); w.document.close();
+  // 等底圖與字型就緒才叫列印，否則 PDF 裡的地圖會缺磚；最多等 8 秒
+  const imgs=[...w.document.images].map(im=>im.complete?null:new Promise(r=>{im.onload=im.onerror=r;}));
+  const fonts=w.document.fonts?w.document.fonts.ready:null;
+  Promise.race([Promise.all([...imgs,fonts]), new Promise(r=>setTimeout(r,8000))])
+    .then(()=>{ try{ w.focus(); w.print(); }catch(e){} });
 }
 
 /* ---- 綁定 ---- */
 $("#btnAdd").addEventListener("click",()=>addParticipant());
 $("#btnExport").addEventListener("click",exportExcel);
+$("#btnJson").addEventListener("click",exportJSON);
+$("#btnPdf").addEventListener("click",exportPDF);
 $("#btnCtx").addEventListener("click",analyzeContext);
 document.addEventListener("change",e=>{
   if(e.target&&(e.target.id==="ptSession"||e.target.id==="ptMode")) refreshPointPanel();
@@ -1468,6 +1820,8 @@ if(PROJ){
 }else{
   $("#projChip").textContent="未指定專案";
   $("#btnExport").disabled=true;
+  $("#btnJson").disabled=true;
+  $("#btnPdf").disabled=true;
   $("#btnDrive").disabled=true;
   const n=$("#feNote");n.style.display="block";
   n.textContent="網址缺少專案代號。請自專案樞紐的「資料」站進入。";
