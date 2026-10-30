@@ -319,7 +319,7 @@ body.en [data-lang="zh"]{display:none}
 <ol>
   <li><span data-lang="zh">只報 <code>r</code>（效果量）。永遠成立，不受自相關影響。</span><span data-lang="en">Report <code>r</code> alone (effect size). Always valid, unaffected by autocorrelation.</span></li>
   <li><span data-lang="zh">以 <code>n_eff = 總時長 ÷ 2τ</code> 當有效樣本數，據此算 <code>p</code>。</span><span data-lang="en">Take <code>n_eff = total duration ÷ 2τ</code> as the effective sample size and compute <code>p</code> from it.</span></li>
-  <li><span data-lang="zh">切成長於 <code>2τ</code> 的區塊，各自求 <code>r</code>，以區塊間的變異給 95% 信賴區間。</span><span data-lang="en">Cut the series into blocks longer than <code>2τ</code>, compute <code>r</code> in each, and derive a 95% CI from the between-block variation.</span></li>
+  <li><span data-lang="zh">切成長於 <code>2τ</code> 的區塊，以控制速度與晝夜後的殘差各自求 <code>r</code>，以區塊間的變異給 95% 信賴區間。</span><span data-lang="en">Cut the series into blocks longer than <code>2τ</code>, compute <code>r</code> in each on the speed- and time-of-day-controlled residuals, and derive a 95% CI from the between-block variation.</span></li>
 </ol>
 <p data-lang="zh"><b>三者以區塊結果最值得採信。</b>兩個 <code>p</code> 值不一致時，以區塊為準。</p>
 <p data-lang="en"><b>Of the three, trust the block result most.</b> When the two p-values disagree, go with the blocks.</p>
