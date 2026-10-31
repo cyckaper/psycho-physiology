@@ -214,6 +214,17 @@ for f in netlify/functions/*.mjs netlify/lib/*.mjs; do node --check "$f" || exit
 做法：把函式抽出來在 Node 裡 eval，餵已知答案的資料，確認輸出符合預期。
 過去每一次只驗語法就交差，都在使用者端才爆。
 
+現成腳本在 `tools/verify-analysis/`（2026-10-31 起），改了分析就跑這兩支，兩支都要全部通過：
+
+```bash
+git fetch origin main
+node tools/verify-analysis/point-level.mjs --base origin/main     # 點層級五組已知答案，約 1 分鐘
+node tools/verify-analysis/browser-report.mjs --base origin/main  # 真頁面＋讀人報告，中英各一次
+```
+
+`--base` 只把舊版數字並列對照、不判通過，用來寫進 commit 說明「改了什麼」。新增或改名分析函式要同步
+`lib.mjs` 的 `NAMES`（抽不到會直接報錯），新方法要在 `point-level.mjs` 補一組已知答案的情境，不要只靠既有情境沒壞。
+
 ### 語言
 
 - 介面中英雙語，字典集中在 `i18n.js`
