@@ -1170,7 +1170,7 @@ function renderModelAdvice(ds, tauHR){
   let advice='<h4>'+TT("md.overall","本場次的模型建議")+'</h4><p>';
   if(usable.length){
     advice += TT("md.a1","可用區塊法分析的變項：")+'<b>'+usable.join("、")+'</b>。'+
-              TT("md.a2","建議以「控制速度後的區塊相關」為主要結果，信賴區間不涵蓋 0 才視為值得追究的訊號；未控制的相關僅供對照。");
+              TT("md.a2","建議以「控制速度與晝夜後的區塊相關」為主要結果，信賴區間不涵蓋 0 才視為值得追究的訊號；未控制的相關僅供對照。");
   }else if(effOnly){
     advice += TT("md.a3","本場次沒有變項具備足夠的區塊數，僅能報告效果量（r），不做統計推論。時長過短或訊號持續性過高皆會導致此結果。");
   }else{
@@ -1208,19 +1208,24 @@ function pointLevelStats(ds){
     if(!pr) return {def:d, pr:null};
     // 控制速度＋晝夜。時刻是環形變數（23 點之後回到 0 點），
     // 以線性項控制不了；必須拆成 sin/cos 兩個分量才洗得掉晝夜節律。
-    let pa=null;
+    // 心率只在該變項有值的點上殘差化：兩邊用同一批點迴歸，殘差相關才是偏相關。
+    let pa=null, rx=null, ry=null;
     if(d.key!=="speed"){
-      const ctrl=[];
-      if(d.key!=="speed") ctrl.push(spd);
+      const ctrl=[spd];
       if(d.key!=="hour")  { ctrl.push(hourSin, hourCos); }
-      const rx=residualize(xs, ctrl), ry=residualize(hr, ctrl);
+      rx=residualize(xs, ctrl);
+      ry=residualize(hr.map((h,i)=>isFinite(xs[i])?h:NaN), ctrl);
       if(rx&&ry){ const pp=pearson(rx,ry); if(pp) pa=pp.r; }
     }
     const tauX=decorrelationTimeSec(ts,xs);
     const tau=Math.max(tauHR||0, tauX||0) || null;
     const nEff=effectiveNTime(ts,tau,pr.n);
     const pv=pFromR(pa!=null?pa:pr.r, nEff);
-    const bc=blockCorrelation(ts,xs,hr,tau);
+    // 區塊相關吃同一組殘差，否則區塊內的速度與晝夜變化會冒充環境效果。
+    // 殘差與輸入等長、缺值處為 NaN，索引仍對齊 ts，blockCorrelation 逐點略過。
+    // 速度本身不控制，用原始值；殘差化失敗（共線）就不給區塊結果，不退回原始值。
+    const bc = d.key==="speed" ? blockCorrelation(ts,xs,hr,tau)
+             : (rx&&ry ? blockCorrelation(ts,rx,ry,tau) : null);
     return {def:d, pr, pa, tau, nEff, pv, bc};
   });
   return {tauHR, vars};
