@@ -175,8 +175,10 @@ body.en [data-lang="zh"]{display:none}
   </div>
   <div class="s">
     <span class="t"><span data-lang="zh">3 問卷 · 兩份，觸發方式在此設定</span><span data-lang="en">3 Survey · two of them, plus the trigger</span></span>
-    <p data-lang="zh">每個專案有兩份問卷。<b>入組問卷</b>：受測者第一次使用時填一次（基本資料、email），可一鍵套用範本。<b>現場問卷（EMA）</b>：每次觸發都填，可上傳現成問卷（PDF／Word .docx／純文字）由 AI 解析成題目，也可套用五題範本。</p>
-    <p data-lang="en">Each project has two surveys. The <b>intake survey</b> is filled once, the first time a participant uses the app (background details, email); a template applies it in one click. The <b>in-situ survey (EMA)</b> is filled on every trigger; you can upload an existing questionnaire (PDF, Word .docx or plain text) for AI to parse into items, or apply a five-item template.</p>
+    <p data-lang="zh">每個專案有兩份問卷。<b>入組問卷</b>：受測者第一次使用時填一次（基本資料、選填 email），可一鍵套用範本。<b>現場問卷（EMA）</b>：每次觸發都填，可上傳現成問卷（PDF／Word .docx／純文字）由 AI 解析成題目，也可套用五題範本。</p>
+    <p data-lang="en">Each project has two surveys. The <b>intake survey</b> is filled once, the first time a participant uses the app (background details and an optional email); a template applies it in one click. The <b>in-situ survey (EMA)</b> is filled on every trigger; you can upload an existing questionnaire (PDF, Word .docx or plain text) for AI to parse into items, or apply a five-item template.</p>
+    <p data-lang="zh">email 只用於寄送個人回饋報告，後端收到就和研究資料分開：研究資料（主控台、Drive 研究資料夾）只留「有沒有留 email」，email 本身寫到 Drive「我的雲端硬碟」最上層的「讀人 聯絡資料（與研究資料分開存放）」資料夾，每個專案一個檔、依受測編號列出。這個資料夾不要分享給不寄報告的人，寄完報告或研究結束時刪除。現場問卷裡的 email 題也一樣處理。</p>
+    <p data-lang="en">Emails are used only to send personal reports and are separated from the research data as soon as they reach the backend: the research data (console, Drive research folder) only records whether an email was left, while the emails themselves go to a folder named “讀人 聯絡資料（與研究資料分開存放）” at the top of My Drive, one file per project listed by participant code. Do not share that folder with anyone who is not sending reports, and delete it once reports are sent or the study ends. Email items in the in-situ survey are handled the same way.</p>
     <p data-lang="zh"><b>觸發方式</b>有三種：<b>範圍</b>（走進反應區）、<b>定時</b>（每 N 分鐘一次）、或<b>兩者</b>。量尺題的最小／最大值一次套用到全部量尺題。可勾選支援語言並指定預設語言，手機依系統語言顯示，答案落在同一欄位，跨國收案也能直接合併。</p>
     <p data-lang="en"><b>Three trigger modes</b>: <b>Zone</b> (on entering a response zone), <b>Timed</b> (every N minutes), or <b>Both</b>. The scale minimum and maximum apply to every scale item at once. Tick the supported languages and pick a default; the phone shows the participant's system language, while answers land in the same columns, so multi-country collection merges directly.</p>
     <div class="warn" style="margin:10px 0 0">
@@ -204,8 +206,8 @@ body.en [data-lang="zh"]{display:none}
   </div>
   <div class="s">
     <span class="t"><span data-lang="zh">填一次入組問卷</span><span data-lang="en">Fill the intake survey once</span></span>
-    <p data-lang="zh">第一次使用該專案時填，含 email。之後同一專案不再重複問。</p>
-    <p data-lang="en">Filled the first time they use that project, including their email. It is not asked again for the same project.</p>
+    <p data-lang="zh">第一次使用該專案時填，email 選填（只用來寄個人回饋報告）。之後同一專案不再重複問。</p>
+    <p data-lang="en">Filled the first time they use that project; the email is optional and only used to send their personal report. It is not asked again for the same project.</p>
   </div>
   <div class="s">
     <span class="t"><span data-lang="zh">開始走測</span><span data-lang="en">Start the walk</span></span>
@@ -386,7 +388,9 @@ body.en [data-lang="zh"]{display:none}
   <span class="pill">ema</span><span class="pill">activity</span><span class="pill">altitude</span>
 </p>
 
-<p><code>{ project, code, session, uploadedAt, final, counts, physiology[], location[], environment[], ema[], activity[], altitude[], intake }</code></p>
+<p><code>{ project, code, session, uploadedAt, final, counts, physiology[], location[], environment[], ema[], activity[], altitude[], intake, hasEmail }</code></p>
+<p class="small" data-lang="zh"><code>intake</code> 與 <code>ema</code> 作答裡的 email 在上傳時就拆到另一個 store（<code>heals-contacts</code>），記錄裡只剩遮罩字樣 <code>[email 已另存]</code> 與 <code>hasEmail</code>。</p>
+<p class="small" data-lang="en">Emails inside <code>intake</code> and the <code>ema</code> answers are split off into a separate store (<code>heals-contacts</code>) on upload; the record keeps only the mask <code>[email 已另存]</code> and <code>hasEmail</code>.</p>
 
 <p class="small" data-lang="zh">後三條流（<code>ema</code>／<code>activity</code>／<code>altitude</code>）向下相容：舊版 App 未送時為空陣列、計數為 0，上傳不會失敗。<code>final:false</code> 代表走測中的定期備份，Drive 封存要等定稿。</p>
 <p class="small" data-lang="en">The last three streams (<code>ema</code>, <code>activity</code>, <code>altitude</code>) are backward compatible: when an older app does not send them they are empty arrays with a count of 0, and the upload still succeeds. <code>final:false</code> marks a periodic backup taken mid-walk; Drive archiving waits for the final version.</p>

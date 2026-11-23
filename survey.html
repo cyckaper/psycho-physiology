@@ -73,7 +73,7 @@
 <body>
 <div class="wrap">
   <h1>HEALS<span class="zh" data-i18n="survey.title">問卷設計</span></h1><span id="langSlot" style="float:right"></span>
-  <p class="sub" data-i18n="survey.sub">為每個專案設計兩份問卷。<b>入組</b>：受測者第一次用 App 填一次（基本資料、email），以範本一鍵套用。<b>現場（EMA）</b>：走進反應區當下每次填，可上傳現成問卷由 AI 解析為題目並產生多語系譯文草稿。手機依系統語言顯示，答案落在同一欄位可跨國合併。</p>
+  <p class="sub" data-i18n="survey.sub">為每個專案設計兩份問卷。<b>入組</b>：受測者第一次用 App 填一次（基本資料、選填 email；email 與研究資料分開存放），以範本一鍵套用。<b>現場（EMA）</b>：走進反應區當下每次填，可上傳現成問卷由 AI 解析為題目並產生多語系譯文草稿。手機依系統語言顯示，答案落在同一欄位可跨國合併。</p>
   <div class="rule"></div>
 
   <div class="bar" style="align-items:center">
@@ -346,7 +346,7 @@
       card.appendChild(ml);
     }
     else if(q.type==="email"){
-      card.appendChild(metaLine("受測者填 email；手機端會驗格式。此欄可作為跨資料對接的識別。"));
+      card.appendChild(metaLine("受測者填 email；設為必填時手機端會驗格式。後端收到即與研究資料分開存放（Drive「讀人 聯絡資料」資料夾），研究資料只留「有沒有留 email」，只用於寄送個人回饋。受測者之間請以受測編號對應，不要拿 email 當識別。"));
     }
 
     return card;
@@ -406,7 +406,7 @@
     return {
       title: L("受測者基本資料","Participant Background","参加者の基本情報"),
       questions: [
-        Object.assign(newQ("email"), { id:"email", required:true, text:L("電子郵件","Email","メール") }),
+        Object.assign(newQ("email"), { id:"email", required:false, text:L("電子郵件（選填，只用於寄送個人回饋）","Email (optional, only for sending your personal report)","メール（任意・個人フィードバックの送付のみに使用）") }),
         Object.assign(newQ("text"), { id:"birth_year", text:L("出生年（西元）","Birth year (AD)","生まれ年（西暦）") }),
         Object.assign(newQ("single"), { id:"gender", text:L("性別","Gender","性別"), choices:[
           {value:"f",label:L("女","Female","女性")},
