@@ -88,8 +88,8 @@
 
     /* ── 問卷頁 ── */
     "survey.title":     ["問卷設計", "Survey Design"],
-    "survey.sub":       ["為每個專案設計兩份問卷。入組：受測者第一次用 App 填一次（基本資料、email），以範本一鍵套用。現場（EMA）：走進反應區當下每次填，可上傳現成問卷由 AI 解析為題目並產生多語系譯文草稿。手機依系統語言顯示，答案落在同一欄位可跨國合併。",
-                         "Two surveys per project. Intake: filled once on first use (background, email), available from a template. In-situ (EMA): filled each time a zone is entered; upload an existing questionnaire and AI will extract items and draft translations. Phones display the participant's system language while answers stay in shared fields for cross-country merging."],
+    "survey.sub":       ["為每個專案設計兩份問卷。入組：受測者第一次用 App 填一次（基本資料、選填 email；email 與研究資料分開存放），以範本一鍵套用。現場（EMA）：走進反應區當下每次填，可上傳現成問卷由 AI 解析為題目並產生多語系譯文草稿。手機依系統語言顯示，答案落在同一欄位可跨國合併。",
+                         "Two surveys per project. Intake: filled once on first use (background and an optional email, which is stored apart from the research data), available from a template. In-situ (EMA): filled each time a zone is entered; upload an existing questionnaire and AI will extract items and draft translations. Phones display the participant's system language while answers stay in shared fields for cross-country merging."],
     "survey.save":      ["儲存問卷", "Save survey"],
     "survey.langs":     ["支援語言", "Languages"],
     "survey.defLang":   ["預設語言", "Default language"],

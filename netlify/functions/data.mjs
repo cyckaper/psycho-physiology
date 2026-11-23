@@ -6,8 +6,11 @@
 //          活動類型 activity／高度 altitude。
 //          後三者舊版 App 未送 → 一律空陣列、計數為 0，不使舊裝置上傳失敗。
 // 儲存：Netlify Blobs（store: "heals-data"，key = 專案/編號/場次）。
+// email 與研究資料分開（../lib/contacts.mjs）：入組資料與現場作答裡的 email 先拆到 heals-contacts，
+//          研究資料只留遮罩與 hasEmail；GET 回傳前再拆一次，舊記錄裡的 email 也不會跟著出去。
 import { getStore } from "@netlify/blobs";
 import { summarize } from "../lib/session-summary.mjs";
+import { splitRecordContacts, saveContact } from "../lib/contacts.mjs";
 import { inflateRawSync, inflateSync, gunzipSync } from "node:zlib";
 
 const CORS = {
@@ -56,8 +59,8 @@ export default async (req) => {
   const url = new URL(req.url);
 
   // POST /api/data
-  // body: { project, code, session, physiology:[...], location:[...], environment:[...],
-  //         ema:[...], activity:[...], altitude:[...] }
+  // body: { project, code, session, final, physiology:[...], location:[...], environment:[...],
+  //         ema:[...], activity:[...], altitude:[...], intake:{...} }
   if (req.method === "POST") {
     let body;
     try { body = await readBody(req); } catch { return reply({ error: "invalid json" }, 400); }
@@ -70,12 +73,19 @@ export default async (req) => {
     const physiology  = Array.isArray(body.physiology)  ? body.physiology  : [];
     const location    = Array.isArray(body.location)    ? body.location    : [];
     const environment = Array.isArray(body.environment) ? body.environment : [];
-    const ema         = Array.isArray(body.ema)         ? body.ema         : [];   // 現場問卷作答（舊版 App 未送 → 空陣列）
+    const emaRaw      = Array.isArray(body.ema)         ? body.ema         : [];   // 現場問卷作答（舊版 App 未送 → 空陣列）
     const activity    = Array.isArray(body.activity)    ? body.activity    : [];   // CoreMotion 實測活動類型（同上）
     const altitude    = Array.isArray(body.altitude)    ? body.altitude    : [];   // 氣壓計相對高度（同上）
 
     const key = `${project}/${code}/${session}`;
-    const intake = (body.intake && typeof body.intake === "object") ? body.intake : null;
+    const intakeRaw = (body.intake && typeof body.intake === "object") ? body.intake : null;
+    // email 與研究資料分開：研究資料只留遮罩，email 另存 heals-contacts。
+    // App 每次上傳都帶 intake，這裡寫失敗下一次上傳會再補，所以不擋上傳本體
+    const { intake, ema, emails } = splitRecordContacts({ intake: intakeRaw, ema: emaRaw });
+    if (emails.length) {
+      try { await saveContact({ project, codeKey: code, codeRaw, emails }); }
+      catch (_) { /* 下一次上傳再寫 */ }
+    }
     const isFinal = body.final === false ? false : true;   // 走測中的定期備份標記 final:false；未帶視為定稿
     const record = {
       project, code: codeRaw, session: sessionRaw, uploadedAt: Date.now(),
@@ -86,7 +96,8 @@ export default async (req) => {
         activity: activity.length, altitude: altitude.length,
       },
       physiology, location, environment, ema, activity, altitude,
-      intake,                                    // 受測者入組基本資料（可能為 null）
+      intake,                                    // 受測者入組基本資料（email 已拆出；可能為 null）
+      hasEmail: emails.length > 0,               // 這位受測者有沒有留 email（email 本身在 heals-contacts）
     };
     await store.setJSON(key, record);   // 單一寫入
     // 場次清單簿登記：繞開 list() 最終一致的延遲；drive-sync 以清單簿為主、list() 為輔
@@ -112,7 +123,13 @@ export default async (req) => {
     const out = [];
     for (const b of blobs) {
       const v = await store.get(b.key, { type: "json" });
-      if (v) out.push(v);
+      if (!v) continue;
+      // 2026-11 以前上傳的記錄 intake 裡還有 email：回傳前同樣拆掉（只改回傳的副本，不動儲存的記錄）
+      const sp = splitRecordContacts({ intake: v.intake || null, ema: Array.isArray(v.ema) ? v.ema : [] });
+      v.intake = sp.intake;
+      v.ema = sp.ema;
+      if (typeof v.hasEmail !== "boolean") v.hasEmail = sp.emails.length > 0;
+      out.push(v);
     }
     out.sort((a, b) => (b.uploadedAt || 0) - (a.uploadedAt || 0));
     return reply(out);

@@ -67,11 +67,11 @@
 | `projects.mjs` | `/api/projects` | 專案登記表 CRUD |
 | `zones.mjs` | `/api/zones` | 反應區 GeoJSON |
 | `survey.mjs` | `/api/survey` | 問卷定義（intake + ema） |
-| `data.mjs` | `/api/data` | **場次上傳**。生理／軌跡／環境／EMA／活動／高度 六條流 |
+| `data.mjs` | `/api/data` | **場次上傳**。生理／軌跡／環境／EMA／活動／高度 六條流。intake 與 EMA 作答裡的 email 收到即拆到 `heals-contacts`，研究資料只留遮罩與 `hasEmail`；GET 回傳前也拆一次（血淚教訓十二） |
 | `live.mjs` | `/api/live` | 走測即時回報與監看查詢（含 `wo`：手錶上本 App 的體能訓練是否在跑） |
 | `ai-survey.mjs` | `/api/ai-survey` | PDF/Word → AI 解析題目 |
 | `command.mjs` | `/api/command` | 遠端開始／停止。**已退役**，端點暫留以防舊版 App 仍在輪詢 |
-| `drive-sync.mjs` | `/api/drive-sync` | 場次自動封存至 Google Drive。專案資料夾名為「專案名稱（代號）」，身分認資料夾 ID（對應存 `heals-drive-folders/projects`），網頁上改專案名稱，Drive 資料夾會就地跟著改；**不要在 Drive 手動改名**，下次封存會被改回登記表的名稱 |
+| `drive-sync.mjs` | `/api/drive-sync` | 場次自動封存至 Google Drive。專案資料夾名為「專案名稱（代號）」，身分認資料夾 ID（對應存 `heals-drive-folders/projects`），網頁上改專案名稱，Drive 資料夾會就地跟著改；**不要在 Drive 手動改名**，下次封存會被改回登記表的名稱。`問卷.json` 不帶 email（只有 `hasEmail`）；聯絡資料另寫到研究資料根資料夾以外的「讀人 聯絡資料（與研究資料分開存放）」，每專案一個檔 |
 | `drive-sync-cron.mjs` | 排程 `*/5 * * * *` | 每 5 分鐘觸發 drive-sync |
 | `daily-log.mjs` | `/api/daily-log` | 每日紀錄：彙整某日（台北時間，以場次開始時間歸日）的專案與筆數，存 `heals-daily-log`，並在 Drive「每日紀錄」資料夾寫 CSV |
 | `daily-log-cron.mjs` | 排程 `10 16 * * *` | UTC 16:10＝台北 00:10，彙整昨天並重做前天（接住隔天補傳的心率） |
@@ -80,6 +80,7 @@
 `session-summary.mjs` 算場次摘要（開始／結束時間、各流筆數）。`data.mjs` 上傳時把摘要
 登記進清單簿 `heals-data-index/manifest` 的 `sum`，每日紀錄只讀清單簿即可；
 `sum` 只含時間、筆數與受測編號，**不可放作答內容或 email**。
+`contacts.mjs` 拆 email 與存聯絡資料，`data.mjs` 收件與 GET 回傳、`drive-sync.mjs` 封存三處共用同一個 `splitRecordContacts()`。
 
 ### 與 zoning8circulation 的銜接
 
@@ -95,6 +96,7 @@
 
 ```
 GDRIVE_FOLDER_ID
+GDRIVE_CONTACTS_FOLDER_ID  # 選填：聯絡資料夾；不設就用「我的雲端硬碟」最上層的「讀人 聯絡資料（與研究資料分開存放）」。不可在 GDRIVE_FOLDER_ID 底下，指到那裡會被拒寫
 GDRIVE_OAUTH_CLIENT_ID / GDRIVE_OAUTH_CLIENT_SECRET / GDRIVE_OAUTH_REFRESH_TOKEN
 ANTHROPIC_API_KEY          # 問卷 AI 解析用
 GDRIVE_SA_KEY              # 舊服務帳戶，已停用但保留
@@ -182,6 +184,18 @@ GDRIVE_SA_KEY              # 舊服務帳戶，已停用但保留
    同名的另一支錶（好幾支都叫「…的 Apple Watch」），接著又因沒做 Clean Build Folder 而遇到 0xe8008017。
    手錶連 Xcode 在校園網路常卡在「Timed out while attempting to establish tunnel」，不必等它。
 
+12. **email 不進研究資料——這是同意書與送審的承諾**（2026-11-23 起）
+   新案知情同意書與 App Store 送審都寫「電子郵件與研究資料分開存放，只用於寄送個人回饋報告，寄出後或研究結束時刪除」。
+   所以 email 一進後端就拆：`data.mjs` 收件時以 `splitRecordContacts()`（`netlify/lib/contacts.mjs`）掃 intake 全部與
+   EMA 每筆事件的作答（`survey`），像 email 的字串換成遮罩 `[email 已另存]`，email 題的答案不論格式整段拆走，App 頂層的
+   `intake.email` 整欄拿掉；拆出來的寫進 `heals-contacts`（`p/<專案>` 依受測編號列 email，`_index` 記各專案更新時間，
+   `_drive` 記 Drive 檔 ID，全是單一 key），研究資料只留 `hasEmail`。GET 回傳前、`drive-sync` 寫 `問卷.json` 前都再拆一次，
+   接住 2026-11 以前的舊記錄。`drive-sync` 把聯絡資料另寫到研究資料根資料夾**以外**的資料夾，每專案一個
+   `聯絡資料_專案名稱（代號）.json`；`GDRIVE_CONTACTS_FOLDER_ID` 若指到研究資料根資料夾或它底下，整段拒寫並列在 `failed`。
+   **新增任何會把 intake 或 EMA 作答送出後端的路徑**（匯出、報告、新端點、Drive 檔），都要先過 `splitRecordContacts()`。
+   受測者之間一律以受測編號對應，不要拿 email 當識別。寄完報告或研究結束時，刪 Drive 那個檔，再到 Netlify 後台 Blobs 刪
+   `heals-contacts` 的 `p/<專案代號>`（`_index`、`_drive` 不必動，之後沒人再留 email 就不會重建）。
+
 ---
 
 ## 五、開發慣例
@@ -224,6 +238,14 @@ node tools/verify-analysis/browser-report.mjs --base origin/main  # 真頁面＋
 
 `--base` 只把舊版數字並列對照、不判通過，用來寫進 commit 說明「改了什麼」。新增或改名分析函式要同步
 `lib.mjs` 的 `NAMES`（抽不到會直接報錯），新方法要在 `point-level.mjs` 補一組已知答案的情境，不要只靠既有情境沒壞。
+
+### 聯絡資料拆分（血淚教訓十二）
+
+改了 `netlify/lib/contacts.mjs`、`data.mjs` 收件或 GET 的 intake／ema 處理、`drive-sync.mjs` 的 `問卷.json` 與聯絡資料段落，就跑
+`node tools/verify-contacts/run.mjs`（2026-11-23 起；記憶體版 Blobs＋模擬 Drive，不連網，一秒內跑完，全部通過才 exit 0）。
+它用已知答案驗：研究資料（heals-data 記錄、GET 回傳、研究資料根資料夾底下每個檔）找不到任何 `@`；聯絡資料只寫在研究資料根資料夾以外；
+已拆過的記錄再拆一次內容不變、遮罩字樣不會被當成 email；專案改名、聯絡資料檔被丟進垃圾桶、`heals-contacts` 那筆被刪、
+`GDRIVE_CONTACTS_FOLDER_ID` 設錯各一種情境。新情境照同樣寫法補斷言，不要只印結果。
 
 ### 語言
 
@@ -328,6 +350,10 @@ Apple Watch 同時只能跑一個體能訓練，另開會讓原本的收到 `HKE
 （舊版 App 未送 → 空陣列，計數為 0）。`drive-sync.mjs` 會多封存
 `活動類型.json` 與 `高度.json`。
 
+`data.mjs` 收到的 `intake`（App 的 `IntakeSubmission`，頂層有 `email`）與 `ema` 作答照舊收，但 email 拆到 `heals-contacts`
+（血淚教訓十二），記錄多一個 `hasEmail` 布林。App 不必改：它照樣每次上傳都帶 intake，後端每次都拆、已有的 email 不重複寫。
+問卷範本的 email 題已改為選填；選填時手機端不驗格式，所以後端對 email 題的答案不靠正則、整段拆走。
+
 `live.mjs` 接受 `wo`（布林；不送或非布林一律存 `null`，**不可當成 false**，舊版 App 根本不送）。
 監看頁據此標 ⌚運動中／⚠ 手錶運動未確認／⚠ 運動中但心率停更，沒有 `wo` 的裝置不標。
 
@@ -340,6 +366,7 @@ Apple Watch 同時只能跑一個體能訓練，另開會讓原本的收到 `HKE
 | 高 | TestFlight 上架與十組佈署 | 直裝要逐台接線、開發者模式、手動登記手錶（血淚教訓十一），十組成本高；簽署一年到期。上架前要補：手機版以隱私清單（PrivacyInfo.xcprivacy）申報 UserDefaults（CA92.1；手錶版若也用到，要另附一份）、`ITSAppUsesNonExemptEncryption = NO`、手機圖示去掉 alpha 通道（兩張都是 RGBA 但完全不透明，另存 RGB 畫面不變）；Watch target 的 Skip Install＝YES 已設好（2026-10-17 查證）。細節見 HealthProbe repo CLAUDE.md 第八節。注意授權條款把內部測試定位在「測試、評估、開發」；測試者各用自己的 Apple 帳號、不共用，一個帳號最多 30 台裝置 |
 | 高 | App 事件與環境座標修正待實走驗證 | 2026-10-17 讀 App 原始碼發現：事件的 `gpsLat`／`gpsLng`、進區環境與環境流都取自走測中不會更新的 `LocationManager`，可能停在上次開 App 的位置。2026-10-18 App 端改用觸發點與軌跡最新一點（cyckaper/HealthProbe#2），尚未建置實走。在那之前上傳的場次座標仍是舊的：軌跡、反應區判定與 `/api/live` 不受影響，主控台也不讀事件座標，但環境流會進脈絡分析，跨區走測時環境值可能是別處的。驗收步驟與舊資料處理見 HealthProbe CLAUDE.md 第八節「座標修正待實走驗證」，驗收後兩邊一起刪 |
 | 高 | 心動農場 006 換機 | iPhone 7（iOS 15）配 Series 7（watchOS 8.8.1）。在 iPhone 7 的「Watch」App 解除配對 → 新手機「設定為新的 Apple Watch」→ 升到 watchOS 26.x。不可逆，配好前別抹除 iPhone 7；今年內完成（watchOS 8.8.1 的裝置啟用憑證 2027-01 到期，拖過之後抹除重配可能卡在啟用） |
+| 中 | 舊資料的 email 一次清理 | 2026-11-23 以前上傳的記錄，`heals-data` 裡的 intake 仍帶 email，Drive 已封存的 `問卷.json` 也還有 `email` 欄；GET 與之後的封存都會先拆，但存著的那份沒動。清理要先把 email 收進 `heals-contacts`，再改寫 `heals-data` 記錄與 Drive 舊檔；改寫 `heals-data` 要避開同一場正在補傳（後到的上傳會被舊版蓋掉），所以獨立做、先列清單給 Jake 確認，不混進一般封存 |
 | 中 | 即時心率第二階段：串流直接入庫 | 手錶推來的樣本目前只供監看。若同時寫進生理流，結束後就不必「等 Apple Watch 同步再上傳一次補齊心率」（手冊第五節那套流程可退役） |
 | 中 | 行事曆分級取用 | 規格已定案（三級：忙碌度／時間結構／含標題），需 EventKit 與 Info.plist 權限字串。預設第一級給受測者 |
 | 中 | zoning8circulation 的點位圖層讀不到本站 Excel | 它的「讀人｜體驗資料（帶座標）」只讀第一個分頁，本站 Excel 第一頁是「總覽 Summary」，沒有經緯度，會報找不到座標；長格式的「數值 Value」也混了心率與其他指標，直接分區平均沒有意義。較乾淨的做法是在那邊改接本站 JSON 的 `features`（篩 `heart_rate`） |

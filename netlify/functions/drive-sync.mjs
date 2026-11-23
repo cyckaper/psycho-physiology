@@ -1,18 +1,27 @@
 // drive-sync.mjs — 場次自動封存 Google Drive /api/drive-sync
 // 掃描 heals-data 全部場次，尚未推送者打包上傳（授權見下）：
 //   Drive 根資料夾（GDRIVE_FOLDER_ID）／專案名稱（代號）／編號_時間_場次短碼／
-//     問卷.json（intake 含 email，＋ema 作答；兩者皆無則不建此檔）
+//     問卷.json（intake＋ema 作答，email 已拆掉、只留 hasEmail；兩者皆無則不建此檔）
 //     生理.json、軌跡.json、環境.json、活動類型.json、高度.json（空流略過）
 // 已推送清單記在 store: heals-drive-log（key 與場次相同），天生冪等、可重試。
+// 聯絡資料（email，store: heals-contacts，見 ../lib/contacts.mjs）另寫到研究資料根資料夾以外的資料夾：
+//   預設是「我的雲端硬碟」最上層的「讀人 聯絡資料（與研究資料分開存放）」，每專案一個檔；
+//   可用 GDRIVE_CONTACTS_FOLDER_ID 指定別的資料夾，但不可在研究資料根資料夾底下。
 // 由 drive-sync-cron.mjs 每 5 分鐘呼叫；也可直接開 /api/drive-sync 手動觸發驗證。
 // 需要環境變數：GDRIVE_FOLDER_ID（資料夾 ID），以及
 //   GDRIVE_OAUTH_CLIENT_ID / GDRIVE_OAUTH_CLIENT_SECRET / GDRIVE_OAUTH_REFRESH_TOKEN。
 // 服務帳戶（GDRIVE_SA_KEY）2025 後已無儲存配額、寫入必定失敗，僅共用雲端硬碟尚可用，勿再採用。
 import { getStore } from "@netlify/blobs";
 import { createSign } from "node:crypto";
+import {
+  splitRecordContacts, saveContact, contactsFileBody, contactKey,
+  CONTACTS_STORE, CONTACTS_INDEX, CONTACTS_DRIVE,
+} from "../lib/contacts.mjs";
 
 const MAX_PER_RUN = 3;        // 每輪最多推送場次數（控制在函式時限內）
 const TIME_BUDGET_MS = 7000;  // 逾時保護
+const MAX_CONTACTS_PER_RUN = 3;   // 每輪最多更新的聯絡資料檔（每專案一個；只有新受測者留 email 時才會變）
+const CONTACTS_FOLDER_NAME = "讀人 聯絡資料（與研究資料分開存放）";
 
 const HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -107,6 +116,20 @@ async function driveMeta(token, fileId) {
   const d = await r.json();
   return d.trashed ? null : d;
 }
+// 往上找祖先資料夾，看 folderId 是不是落在 ancestorId 底下（最多 8 層；查不到就當不是）
+async function driveIsUnder(token, folderId, ancestorId) {
+  let cur = folderId;
+  for (let i = 0; i < 8 && cur; i++) {
+    if (cur === ancestorId) return true;
+    const r = await fetch("https://www.googleapis.com/drive/v3/files/" + encodeURIComponent(cur) + "?fields=parents", {
+      headers: { Authorization: "Bearer " + token },
+    });
+    if (!r.ok) return false;
+    const d = await r.json();
+    cur = (d.parents && d.parents[0]) || null;
+  }
+  return false;
+}
 async function driveRename(token, fileId, name) {
   const r = await fetch("https://www.googleapis.com/drive/v3/files/" + encodeURIComponent(fileId) + "?fields=id,name", {
     method: "PATCH",
@@ -180,20 +203,6 @@ function tpeStamp(ms) {
     hour: "2-digit", minute: "2-digit", hour12: false,
   }).format(new Date(ms || Date.now()));
   return s.replace(/[^\d]/g, "").slice(0, 12).replace(/^(\d{8})(\d{4})$/, "$1-$2");
-}
-function findEmail(obj) {
-  // 深度掃描 intake 物件，抓出第一個像 email 的字串（不依賴特定欄位名）
-  const re = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-  const stack = [obj];
-  let guard = 0;
-  while (stack.length && guard++ < 2000) {
-    const cur = stack.pop();
-    if (cur == null) continue;
-    if (typeof cur === "string") { if (re.test(cur.trim())) return cur.trim(); continue; }
-    if (Array.isArray(cur)) { for (const v of cur) stack.push(v); continue; }
-    if (typeof cur === "object") { for (const k of Object.keys(cur)) stack.push(cur[k]); }
-  }
-  return null;
 }
 const sess6 = (s) => { s = String(s || ""); return s.length > 6 ? s.slice(-6) : s; };
 
@@ -274,6 +283,28 @@ export default async (req) => {
   const wantName = (id) => projectFolderName(id, projNames.get(id));
   const renameWork = [...projNames.keys()].filter((id) => !folderMap[id] || folderMap[id].name !== wantName(id));
 
+  // 聯絡資料：索引 _index 記每個專案最後一次有新 email 的時間，_drive 記 Drive 端寫到哪了。兩者都是單一 key
+  const contactsStore = getStore({ name: CONTACTS_STORE, consistency: "strong" });
+  const contactsFileName = (pid) => "聯絡資料_" + wantName(pid) + ".json";
+  const readContactsState = async () => {
+    let idx = {}, drv = { folderId: null, projects: {} };
+    try { const v = await contactsStore.get(CONTACTS_INDEX, { type: "json" }); if (v && typeof v === "object") idx = v; } catch (_) {}
+    try {
+      const v = await contactsStore.get(CONTACTS_DRIVE, { type: "json" });
+      if (v && typeof v === "object") {
+        drv = { folderId: v.folderId || null, projects: (v.projects && typeof v.projects === "object") ? v.projects : {} };
+      }
+    } catch (_) {}
+    const work = Object.keys(idx).filter((pid) => {
+      const d = drv.projects[pid];
+      if (!d) return true;
+      if ((Number(idx[pid]) || 0) > (d.syncedAt || 0)) return true;   // 有新 email
+      return !d.gone && d.name !== contactsFileName(pid);              // 專案改名：檔名跟著改
+    }).sort();
+    return { idx, drv, work };
+  };
+  let contacts = await readContactsState();
+
   const url = new URL(req.url);
   const wantProbe = url.searchParams.get("probe");
   const redoKey = url.searchParams.get("redo");
@@ -283,7 +314,7 @@ export default async (req) => {
     return json({ ok: true, redo: redoKey, note: "已清除該場次的記帳；再開本網址（不帶參數）即重新推送" });
   }
 
-  if (!pending.length && !updates.length && !wantProbe && !renameWork.length) {
+  if (!pending.length && !updates.length && !wantProbe && !renameWork.length && !contacts.work.length) {
     return json({
       ok: true, scanned: allKeys.length, pending: 0, synced: [], inProgress,
       note: "全部定稿場次皆已封存" + (inProgress.length ? "；走測中 " + inProgress.length + " 場定期備份中" : ""),
@@ -325,6 +356,7 @@ export default async (req) => {
       pendingKeys: pending,
       updateKeys: updates,
       inProgress,
+      contactsPending: contacts.work,      // 只列專案代號，不列 email
     });
   }
 
@@ -374,14 +406,22 @@ export default async (req) => {
       }
 
       const files = [];
-      const ema = Array.isArray(rec.ema) ? rec.ema : [];
-      if (rec.intake || ema.length) {
+      const emaRaw = Array.isArray(rec.ema) ? rec.ema : [];
+      // email 不進研究資料夾。新記錄在 data.mjs 收到時已拆過；2026-11 以前的舊記錄 intake 裡還有 email，
+      // 在這裡拆，並先收進 heals-contacts，免得從封存檔拿掉之後就找不回來
+      const sp = splitRecordContacts({ intake: rec.intake || null, ema: emaRaw });
+      if (sp.emails.length) {
+        const [pid, codeKey] = key.split("/");
+        try { await saveContact({ project: rec.project || pid, codeKey, codeRaw: rec.code, emails: sp.emails }); }
+        catch (_) { /* heals-data 舊記錄裡還留著，下次處理再收 */ }
+      }
+      if (rec.intake || emaRaw.length) {
         files.push(["問卷.json", {
           project: rec.project, code: rec.code, session: rec.session,
           uploadedAt: rec.uploadedAt,
-          email: findEmail(rec.intake),
-          intake: rec.intake || null,
-          ema,
+          hasEmail: rec.hasEmail === true || sp.emails.length > 0,   // email 本身在聯絡資料夾，以受測編號對應
+          intake: sp.intake || null,
+          ema: sp.ema,
         }]);
       }
       if (Array.isArray(rec.physiology)  && rec.physiology.length)  files.push(["生理.json", rec.physiology]);
@@ -412,6 +452,69 @@ export default async (req) => {
     }
   }
 
+  // 聯絡資料寫到研究資料根資料夾以外的資料夾（每專案一個檔）。上面處理舊記錄時可能剛收進 email，先重讀一次
+  const contactsSynced = [];
+  if (Date.now() - started <= TIME_BUDGET_MS) {
+    try { contacts = await readContactsState(); } catch (_) { /* 沿用開頭讀到的 */ }
+  }
+  if (contacts.work.length && Date.now() - started <= TIME_BUDGET_MS) {
+    const drv = contacts.drv;
+    const envFolder = String(process.env.GDRIVE_CONTACTS_FOLDER_ID || "").trim();
+    let cFolder = null;
+    try {
+      if (envFolder) {
+        if (envFolder === rootId || await driveIsUnder(token, envFolder, rootId)) {
+          throw new Error("GDRIVE_CONTACTS_FOLDER_ID 指到研究資料根資料夾或它底下的資料夾；聯絡資料必須放在研究資料以外，這輪不寫");
+        }
+        if (!(await driveMeta(token, envFolder))) throw new Error("GDRIVE_CONTACTS_FOLDER_ID 找不到這個資料夾（ID 不對、沒有權限或已刪除）");
+        cFolder = envFolder;
+      } else if (drv.folderId && await driveMeta(token, drv.folderId)) {
+        cFolder = drv.folderId;
+      } else {
+        cFolder = await driveEnsureFolder(token, CONTACTS_FOLDER_NAME, "root", folderCache);   // 我的雲端硬碟最上層
+      }
+    } catch (e) {
+      failed.push({ key: "聯絡資料", error: String(e.message || e).slice(0, 200) });
+    }
+    if (cFolder) {
+      let changed = drv.folderId !== cFolder;
+      drv.folderId = cFolder;
+      for (const pid of contacts.work) {
+        if (contactsSynced.length >= MAX_CONTACTS_PER_RUN) break;
+        if (Date.now() - started > TIME_BUDGET_MS) break;
+        try {
+          const d = drv.projects[pid] || {};
+          const name = contactsFileName(pid);
+          const crec = await contactsStore.get(contactKey(pid), { type: "json" });
+          if (!crec) {
+            // heals-contacts 那筆已刪（寄完報告清掉了）：記下來不再重試；之後又有人留 email，索引時間變新就會再寫
+            drv.projects[pid] = { ...d, name, syncedAt: Number(contacts.idx[pid]) || Date.now(), gone: true };
+            changed = true;
+            continue;
+          }
+          const body = contactsFileBody(crec);
+          let fileId = (d.fileId && d.folderId === cFolder) ? d.fileId : null;
+          if (fileId && !(await driveMeta(token, fileId))) fileId = null;   // 檔案被刪或丟進垃圾桶：另建一個
+          if (fileId) {
+            await driveUpdateJSON(token, fileId, body);
+            if (d.name !== name) await driveRename(token, fileId, name);
+          } else {
+            fileId = await driveUploadJSON(token, name, body, cFolder);
+          }
+          // syncedAt 記「寫出去的是哪一版」：讀完之後才進來的 email 會讓索引時間比它新，下一輪再寫
+          drv.projects[pid] = { fileId, folderId: cFolder, name, syncedAt: Number(crec.updatedAt) || Number(contacts.idx[pid]) || Date.now() };
+          changed = true;
+          contactsSynced.push(pid);
+        } catch (e) {
+          failed.push({ key: "聯絡資料/" + pid, error: String(e.message || e).slice(0, 200) });
+        }
+      }
+      if (changed) {
+        try { await contactsStore.setJSON(CONTACTS_DRIVE, drv); } catch (_) { /* 下一輪重寫；同名檔靠 fileId 認，記帳沒寫成會多建一個檔 */ }
+      }
+    }
+  }
+
   if (JSON.stringify(folderMap) !== folderMapBefore) {
     try { await folderStore.setJSON("projects", folderMap); } catch (_) {}
   }
@@ -425,6 +528,7 @@ export default async (req) => {
     skipped,
     inProgress,
     remaining: pending.length + updates.length - synced.length - skipped.length,
+    contactsSynced,                        // 只列專案代號
     failed,
   });
 };
